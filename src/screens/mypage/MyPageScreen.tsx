@@ -34,7 +34,7 @@ export function MyPageScreen() {
     if (!user) return;
     const q = query(
       collection(db, "users", user.uid, "posts"),
-      orderBy("createdAt", "desc")
+      orderBy("createdAt", "asc")
     );
     const unsubscribe = onSnapshot(q, (snap) => {
       const postList: Post[] = snap.docs.map((d) => ({
@@ -88,7 +88,37 @@ export function MyPageScreen() {
           <Text className="text-peach text-sm">Log Out</Text>
         </TouchableOpacity>
       </View>
-      <View className="p-4 border-b border-gray-200">
+      <FlatList
+        ref={(ref) => {
+          if (ref && posts.length > 0) {
+            setTimeout(() => ref.scrollToEnd({ animated: false }), 100);
+          }
+        }}
+        data={posts}
+        keyExtractor={(item) => item.postId}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            className="p-4 border-b border-gray-200"
+            onPress={() =>
+              navigation.navigate("PostDetail", {
+                postOwnerUid: user!.uid,
+                postId: item.postId,
+              })
+            }
+          >
+            <Text className="text-base mb-1">{item.text}</Text>
+            <Text className="text-xs text-gray-400">
+              {item.createdAt.toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
+            </Text>
+          </TouchableOpacity>
+        )}
+        ListEmptyComponent={
+          <View className="flex-1 justify-center items-center p-6">
+            <Text className="text-sm text-gray-400">No posts yet. Write your first one!</Text>
+          </View>
+        }
+      />
+      <View className="p-4 border-t border-gray-200">
         <TextInput
           className="border border-gray-300 rounded-lg p-3 text-base min-h-[60px] mb-2"
           placeholder="What's on your mind?"
@@ -106,31 +136,6 @@ export function MyPageScreen() {
           </Text>
         </TouchableOpacity>
       </View>
-      <FlatList
-        data={posts}
-        keyExtractor={(item) => item.postId}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            className="p-4 border-b border-gray-200"
-            onPress={() =>
-              navigation.navigate("PostDetail", {
-                postOwnerUid: user!.uid,
-                postId: item.postId,
-              })
-            }
-          >
-            <Text className="text-base mb-1">{item.text}</Text>
-            <Text className="text-xs text-gray-400">
-              {item.createdAt.toLocaleDateString()}
-            </Text>
-          </TouchableOpacity>
-        )}
-        ListEmptyComponent={
-          <View className="flex-1 justify-center items-center p-6">
-            <Text className="text-sm text-gray-400">No posts yet. Write your first one!</Text>
-          </View>
-        }
-      />
     </KeyboardAvoidingView>
   );
 }
