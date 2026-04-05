@@ -145,7 +145,7 @@ export function FriendRequestsScreen() {
         renderItem={({ item, section }) => (
           <View className="flex-row justify-between items-center p-4 border-b border-gray-200">
             <Text className="text-sm font-medium">
-              {item.otherDisplayName} <Text className="text-gray-400 font-normal text-xs">(@{item.otherUsername})</Text>
+              {item.otherDisplayName} <Text className="text-gray-400 font-normal text-sm">(@{item.otherUsername})</Text>
             </Text>
             {section.title === "Your Friends" ? (
               <TouchableOpacity
