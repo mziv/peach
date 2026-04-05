@@ -146,10 +146,10 @@ export function FriendRequestsScreen() {
             <Text className="text-base font-medium">{item.otherDisplayName}</Text>
             {section.title === "Your Friends" ? (
               <TouchableOpacity
-                className="border border-gray-300 rounded-md py-1.5 px-3.5"
+                className="border border-gray-300 rounded-md py-1.5 px-3.5 hover:bg-red-50 hover:border-red-300 active:bg-red-50 active:border-red-300"
                 onPress={() => handleRemoveFriend(item.friendshipId, item.otherDisplayName)}
               >
-                <Text className="text-gray-400 font-semibold text-sm">Unfriend</Text>
+                <Text className="text-gray-400 font-semibold text-sm hover:text-red-500 active:text-red-500">Unfriend</Text>
               </TouchableOpacity>
             ) : section.title === "Incoming Requests" ? (
               <View className="flex-row gap-2">
