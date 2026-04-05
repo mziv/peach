@@ -137,6 +137,14 @@ export function FriendRequestsScreen() {
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.friendshipId}
+        ListHeaderComponent={
+          <TouchableOpacity
+            className="m-4 bg-peach rounded-lg p-3.5 items-center"
+            onPress={() => navigation.navigate("SearchUsers")}
+          >
+            <Text className="text-white text-base font-semibold">Search for Friends</Text>
+          </TouchableOpacity>
+        }
         renderSectionHeader={({ section }) => (
           <Text className="text-sm font-semibold text-gray-400 px-4 pt-5 pb-2 bg-gray-50">
             {section.title}
@@ -178,14 +186,6 @@ export function FriendRequestsScreen() {
           section.data.length === 0 ? (
             <Text className="p-4 text-gray-300 text-sm">None</Text>
           ) : null
-        }
-        ListFooterComponent={
-          <TouchableOpacity
-            className="m-4 bg-peach rounded-lg p-3.5 items-center"
-            onPress={() => navigation.navigate("SearchUsers")}
-          >
-            <Text className="text-white text-base font-semibold">Search for Friends</Text>
-          </TouchableOpacity>
         }
       />
     </View>
