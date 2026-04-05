@@ -44,6 +44,7 @@ export async function getPostsByUser(uid: string): Promise<Post[]> {
     text: d.data().text,
     createdAt: d.data().createdAt?.toDate() ?? new Date(),
     commentCount: d.data().commentCount ?? 0,
+    likeCount: d.data().likeCount ?? 0,
   }));
 }
 
@@ -59,5 +60,6 @@ export async function getPost(
     text: data.text,
     createdAt: data.createdAt?.toDate() ?? new Date(),
     commentCount: data.commentCount ?? 0,
+    likeCount: data.likeCount ?? 0,
   };
 }

@@ -15,6 +15,7 @@ export interface Post {
   text: string;
   createdAt: Date;
   commentCount: number;
+  likeCount: number;
 }
 
 export interface Comment {
