@@ -1,12 +1,12 @@
 import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
-import { MainTabs } from "./src/navigation/MainTabs";
 import "./global.css";
+import { AuthProvider } from "./src/contexts/AuthContext";
+import { RootNavigator } from "./src/navigation/RootNavigator";
 
 export default function App() {
   return (
-    <NavigationContainer>
-      <MainTabs />
-    </NavigationContainer>
+    <AuthProvider>
+      <RootNavigator />
+    </AuthProvider>
   );
 }
