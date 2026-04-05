@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -6,12 +6,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../config/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { getFriendships } from "../../services/friendships";
+import { relativeTime } from "../../utils/relativeTime";
 import { HomeStackParamList } from "../../navigation/HomeStack";
 
 type HomeNav = NativeStackNavigationProp<HomeStackParamList, "Home">;
@@ -29,7 +30,7 @@ export function HomeScreen() {
   const [friends, setFriends] = useState<FriendWithMeta[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (!user) return;
 
     let cancelled = false;
@@ -76,7 +77,7 @@ export function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user]));
 
   if (loading) {
     return (
@@ -111,7 +112,12 @@ export function HomeScreen() {
             })
           }
         >
-          <Text className="text-base font-semibold mb-1">{item.displayName}</Text>
+          <View className="flex-row justify-between items-center mb-1">
+            <Text className="text-base font-semibold">{item.displayName}</Text>
+            {item.lastPostAt && (
+              <Text className="text-xs text-gray-400">{relativeTime(item.lastPostAt)}</Text>
+            )}
+          </View>
           {item.lastPostText ? (
             <Text className="text-sm text-gray-500" numberOfLines={2}>
               {item.lastPostText}
