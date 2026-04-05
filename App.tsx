@@ -1,6 +1,11 @@
 import React from "react";
-import { HelloScreen } from "./src/screens/HelloScreen";
+import { NavigationContainer } from "@react-navigation/native";
+import { MainTabs } from "./src/navigation/MainTabs";
 
 export default function App() {
-  return <HelloScreen />;
+  return (
+    <NavigationContainer>
+      <MainTabs />
+    </NavigationContainer>
+  );
 }
