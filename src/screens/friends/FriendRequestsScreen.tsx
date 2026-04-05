@@ -26,6 +26,7 @@ type FriendsNav = NativeStackNavigationProp<FriendsStackParamList, "FriendReques
 
 interface RequestWithName extends Friendship {
   otherDisplayName: string;
+  otherUsername: string;
 }
 
 export function FriendRequestsScreen() {
@@ -48,14 +49,14 @@ export function FriendRequestsScreen() {
     const incomingWithNames = await Promise.all(
       inc.map(async (f) => {
         const requester = await getUserByUid(f.requesterId);
-        return { ...f, otherDisplayName: requester?.displayName ?? "Unknown" };
+        return { ...f, otherDisplayName: requester?.displayName ?? "Unknown", otherUsername: requester?.username ?? "" };
       })
     );
 
     const outgoingWithNames = await Promise.all(
       out.map(async (f) => {
         const receiver = await getUserByUid(f.receiverId);
-        return { ...f, otherDisplayName: receiver?.displayName ?? "Unknown" };
+        return { ...f, otherDisplayName: receiver?.displayName ?? "Unknown", otherUsername: receiver?.username ?? "" };
       })
     );
 
@@ -63,7 +64,7 @@ export function FriendRequestsScreen() {
       accepted.map(async (f) => {
         const friendUid = f.requesterId === user.uid ? f.receiverId : f.requesterId;
         const friend = await getUserByUid(friendUid);
-        return { ...f, otherDisplayName: friend?.displayName ?? "Unknown" };
+        return { ...f, otherDisplayName: friend?.displayName ?? "Unknown", otherUsername: friend?.username ?? "" };
       })
     );
 
@@ -143,7 +144,9 @@ export function FriendRequestsScreen() {
         )}
         renderItem={({ item, section }) => (
           <View className="flex-row justify-between items-center p-4 border-b border-gray-200">
-            <Text className="text-base font-medium">{item.otherDisplayName}</Text>
+            <Text className="text-base font-medium">
+              {item.otherDisplayName} <Text className="text-gray-400 font-normal">(@{item.otherUsername})</Text>
+            </Text>
             {section.title === "Your Friends" ? (
               <TouchableOpacity
                 className="border border-gray-300 rounded-md py-1.5 px-3.5 hover:bg-red-50 hover:border-red-300 active:bg-red-50 active:border-red-300"
