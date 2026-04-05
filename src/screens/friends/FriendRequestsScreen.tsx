@@ -21,6 +21,7 @@ import {
 import { getUserByUid } from "../../services/users";
 import { FriendsStackParamList } from "../../navigation/FriendsStack";
 import { Friendship } from "../../types";
+import { Avatar } from "../../components/Avatar";
 
 type FriendsNav = NativeStackNavigationProp<FriendsStackParamList, "FriendRequests">;
 
@@ -120,7 +121,7 @@ export function FriendRequestsScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 justify-center items-center">
+      <View className="flex-1 justify-center items-center bg-white">
         <ActivityIndicator size="large" />
       </View>
     );
@@ -133,40 +134,59 @@ export function FriendRequestsScreen() {
   ];
 
   return (
-    <View className="flex-1">
+    <View className="flex-1 bg-white">
+      {/* Custom Header */}
+      <View className="flex-row items-center justify-center px-4 py-3 border-b border-gray-100 bg-white">
+        <Text className="text-lg font-semibold">Friends</Text>
+      </View>
+
+      {/* Add Friend button */}
+      <TouchableOpacity
+        className="bg-green rounded-full py-3 mx-4 my-3 items-center"
+        onPress={() => navigation.navigate("SearchUsers")}
+      >
+        <Text className="text-white font-semibold">Add Friend...</Text>
+      </TouchableOpacity>
+
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.friendshipId}
         renderSectionHeader={({ section }) => (
-          <Text className="text-sm font-semibold text-gray-400 px-4 pt-5 pb-2 bg-gray-50">
+          <Text className="text-xs font-semibold text-gray-400 uppercase px-4 pt-5 pb-2">
             {section.title}
           </Text>
         )}
         renderItem={({ item, section }) => (
-          <View className="flex-row justify-between items-center p-4 border-b border-gray-200">
-            <Text className="text-sm font-medium">
-              {item.otherDisplayName} <Text className="text-gray-400 font-normal text-sm">(@{item.otherUsername})</Text>
-            </Text>
+          <View className="flex-row justify-between items-center px-4 py-3">
+            <View className="flex-row items-center flex-1 mr-3">
+              <Avatar size={36} />
+              <View className="ml-3">
+                <Text className="text-sm">
+                  {item.otherDisplayName}{" "}
+                  <Text className="text-gray-400 font-normal">(@{item.otherUsername})</Text>
+                </Text>
+              </View>
+            </View>
             {section.title === "Your Friends" ? (
               <TouchableOpacity
-                className="border border-gray-300 rounded-md py-1.5 px-3.5 hover:bg-red-50 hover:border-red-300 active:bg-red-50 active:border-red-300"
+                className="border border-gray-200 rounded-full py-1 px-3"
                 onPress={() => handleRemoveFriend(item.friendshipId, item.otherDisplayName)}
               >
-                <Text className="text-gray-400 font-semibold text-sm hover:text-red-500 active:text-red-500">Unfriend</Text>
+                <Text className="text-xs text-gray-400">Unfriend</Text>
               </TouchableOpacity>
             ) : section.title === "Incoming Requests" ? (
               <View className="flex-row gap-2">
                 <TouchableOpacity
-                  className="bg-peach rounded-md py-1.5 px-3.5"
+                  className="bg-green rounded-full py-1 px-3"
                   onPress={() => handleAccept(item.friendshipId)}
                 >
-                  <Text className="text-white font-semibold text-sm">Accept</Text>
+                  <Text className="text-white font-semibold text-xs">Accept</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  className="border border-gray-300 rounded-md py-1.5 px-3.5"
+                  className="border border-gray-200 rounded-full py-1 px-3"
                   onPress={() => handleDecline(item.friendshipId)}
                 >
-                  <Text className="text-gray-400 font-semibold text-sm">Decline</Text>
+                  <Text className="text-xs text-gray-400">Decline</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -176,16 +196,8 @@ export function FriendRequestsScreen() {
         )}
         renderSectionFooter={({ section }) =>
           section.data.length === 0 ? (
-            <Text className="p-4 text-gray-300 text-sm">None</Text>
+            <Text className="px-4 pb-3 text-gray-300 text-sm">None</Text>
           ) : null
-        }
-        ListFooterComponent={
-          <TouchableOpacity
-            className="m-4 bg-peach rounded-lg p-3.5 items-center"
-            onPress={() => navigation.navigate("SearchUsers")}
-          >
-            <Text className="text-white text-base font-semibold">Search for Friends</Text>
-          </TouchableOpacity>
         }
       />
     </View>

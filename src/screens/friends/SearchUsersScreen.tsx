@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   Alert,
 } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../contexts/AuthContext";
 import { searchUsersByUsername } from "../../services/users";
 import {
@@ -14,12 +17,17 @@ import {
   getFriendshipBetween,
 } from "../../services/friendships";
 import { User } from "../../types";
+import { Avatar } from "../../components/Avatar";
+import { FriendsStackParamList } from "../../navigation/FriendsStack";
+
+type SearchNav = NativeStackNavigationProp<FriendsStackParamList, "SearchUsers">;
 
 interface SearchResult extends User {
   friendshipStatus: "none" | "pending" | "accepted";
 }
 
 export function SearchUsersScreen() {
+  const navigation = useNavigation<SearchNav>();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -60,10 +68,19 @@ export function SearchUsersScreen() {
   }
 
   return (
-    <View className="flex-1">
-      <View className="flex-row p-3 border-b border-gray-200">
+    <View className="flex-1 bg-white">
+      {/* Custom Header */}
+      <View className="flex-row items-center px-4 py-3 border-b border-gray-100 bg-white">
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="chevron-back" size={24} color="#000" />
+        </TouchableOpacity>
+        <Text className="text-lg font-semibold ml-2">Search Users</Text>
+      </View>
+
+      {/* Search bar */}
+      <View className="flex-row items-center px-4 py-3">
         <TextInput
-          className="flex-1 border border-gray-300 rounded-lg p-2.5 text-base mr-2"
+          className="flex-1 bg-gray-50 rounded-full px-4 py-2.5 text-sm mr-2"
           placeholder="Search by username"
           value={searchTerm}
           onChangeText={setSearchTerm}
@@ -72,24 +89,28 @@ export function SearchUsersScreen() {
           returnKeyType="search"
         />
         <TouchableOpacity
-          className="bg-peach rounded-lg px-4 justify-center"
+          className="bg-green rounded-full px-4 py-2.5"
           onPress={handleSearch}
         >
           <Text className="text-white font-semibold">Search</Text>
         </TouchableOpacity>
       </View>
+
       <FlatList
         data={results}
         keyExtractor={(item) => item.uid}
         renderItem={({ item }) => (
-          <View className="flex-row justify-between items-center p-4 border-b border-gray-200">
-            <View>
-              <Text className="text-base font-medium">{item.displayName}</Text>
-              <Text className="text-sm text-gray-400">@{item.username}</Text>
+          <View className="flex-row justify-between items-center px-4 py-3">
+            <View className="flex-row items-center flex-1 mr-3">
+              <Avatar size={40} />
+              <View className="ml-3">
+                <Text className="text-base font-medium">{item.displayName}</Text>
+                <Text className="text-sm text-gray-400">@{item.username}</Text>
+              </View>
             </View>
             {item.friendshipStatus === "none" ? (
               <TouchableOpacity
-                className="bg-peach rounded-md py-1.5 px-3.5"
+                className="bg-green rounded-full py-1.5 px-4"
                 onPress={() => handleSendRequest(item.uid)}
               >
                 <Text className="text-white font-semibold text-sm">Add Friend</Text>
