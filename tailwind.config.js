@@ -9,6 +9,7 @@ module.exports = {
     extend: {
       colors: {
         peach: "#FF6B6B",
+        green: "#4CD964",
       },
     },
   },
