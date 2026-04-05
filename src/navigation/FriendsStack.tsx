@@ -12,17 +12,9 @@ const Stack = createNativeStackNavigator<FriendsStackParamList>();
 
 export function FriendsStack() {
   return (
-    <Stack.Navigator>
-      <Stack.Screen
-        name="FriendRequests"
-        component={FriendRequestsScreen}
-        options={{ title: "Friends" }}
-      />
-      <Stack.Screen
-        name="SearchUsers"
-        component={SearchUsersScreen}
-        options={{ title: "Search Users" }}
-      />
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="FriendRequests" component={FriendRequestsScreen} />
+      <Stack.Screen name="SearchUsers" component={SearchUsersScreen} />
     </Stack.Navigator>
   );
 }
