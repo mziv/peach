@@ -1,13 +1,15 @@
-import { addDoc, getDocs } from "firebase/firestore";
+import { getDocs, writeBatch } from "firebase/firestore";
 import { addComment, getComments } from "../../src/services/comments";
 
 jest.mock("firebase/firestore", () => ({
   collection: jest.fn(() => "mock-collection-ref"),
-  addDoc: jest.fn(),
+  doc: jest.fn(() => "mock-doc-ref"),
   getDocs: jest.fn(),
   query: jest.fn(),
   orderBy: jest.fn(),
   serverTimestamp: jest.fn(() => "mock-timestamp"),
+  writeBatch: jest.fn(),
+  increment: jest.fn((n) => `increment(${n})`),
 }));
 
 jest.mock("../../src/config/firebase", () => ({
@@ -18,12 +20,17 @@ describe("comments service", () => {
   beforeEach(() => jest.clearAllMocks());
 
   describe("addComment", () => {
-    it("creates a comment doc in the post's comments subcollection", async () => {
-      (addDoc as jest.Mock).mockResolvedValue({ id: "c-1" });
+    it("creates a comment and increments commentCount in a batch", async () => {
+      const mockBatch = {
+        set: jest.fn(),
+        update: jest.fn(),
+        commit: jest.fn().mockResolvedValue(undefined),
+      };
+      (writeBatch as jest.Mock).mockReturnValue(mockBatch);
 
       await addComment("uid-1", "post-1", "uid-2", "commenter", "Nice post!");
 
-      expect(addDoc).toHaveBeenCalledWith(
+      expect(mockBatch.set).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({
           authorUid: "uid-2",
@@ -31,6 +38,11 @@ describe("comments service", () => {
           text: "Nice post!",
         })
       );
+      expect(mockBatch.update).toHaveBeenCalledWith(
+        expect.anything(),
+        { commentCount: "increment(1)" }
+      );
+      expect(mockBatch.commit).toHaveBeenCalled();
     });
   });
 

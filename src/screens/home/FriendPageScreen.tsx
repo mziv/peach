@@ -33,6 +33,7 @@ export function FriendPageScreen() {
         postId: d.id,
         text: d.data().text,
         createdAt: d.data().createdAt?.toDate() ?? new Date(),
+        commentCount: d.data().commentCount ?? 0,
       }));
       setPosts(postList);
       setLoading(false);
@@ -68,9 +69,16 @@ export function FriendPageScreen() {
           }
         >
           <Text className="text-base mb-1">{item.text}</Text>
-          <Text className="text-xs text-gray-400">
-            {item.createdAt.toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
-          </Text>
+          <View className="flex-row justify-between items-center">
+            <Text className="text-xs text-gray-400">
+              {item.createdAt.toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
+            </Text>
+            {item.commentCount > 0 && (
+              <Text className="text-xs text-gray-400">
+                {item.commentCount} comment{item.commentCount === 1 ? "" : "s"}
+              </Text>
+            )}
+          </View>
         </TouchableOpacity>
       )}
       ListEmptyComponent={

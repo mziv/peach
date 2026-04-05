@@ -43,6 +43,7 @@ export async function getPostsByUser(uid: string): Promise<Post[]> {
     postId: d.id,
     text: d.data().text,
     createdAt: d.data().createdAt?.toDate() ?? new Date(),
+    commentCount: d.data().commentCount ?? 0,
   }));
 }
 
@@ -57,5 +58,6 @@ export async function getPost(
     postId: snap.id,
     text: data.text,
     createdAt: data.createdAt?.toDate() ?? new Date(),
+    commentCount: data.commentCount ?? 0,
   };
 }

@@ -1,10 +1,13 @@
 import {
   collection,
+  doc,
   addDoc,
   getDocs,
   query,
   orderBy,
   serverTimestamp,
+  writeBatch,
+  increment,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { Comment } from "../types";
@@ -16,15 +19,22 @@ export async function addComment(
   authorUsername: string,
   text: string
 ): Promise<void> {
-  await addDoc(
-    collection(db, "users", postOwnerUid, "posts", postId, "comments"),
-    {
-      authorUid,
-      authorUsername,
-      text,
-      createdAt: serverTimestamp(),
-    }
+  const batch = writeBatch(db);
+
+  const commentRef = doc(
+    collection(db, "users", postOwnerUid, "posts", postId, "comments")
   );
+  batch.set(commentRef, {
+    authorUid,
+    authorUsername,
+    text,
+    createdAt: serverTimestamp(),
+  });
+
+  const postRef = doc(db, "users", postOwnerUid, "posts", postId);
+  batch.update(postRef, { commentCount: increment(1) });
+
+  await batch.commit();
 }
 
 export async function getComments(
