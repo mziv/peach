@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -12,15 +12,20 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Ionicons } from "expo/node_modules/@expo/vector-icons";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "../../config/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { createPost } from "../../services/posts";
 import { logOut } from "../../services/auth";
-import { MyPageStackParamList } from "../../navigation/MyPageStack";
+import { likePost, unlikePost, hasLiked } from "../../services/likes";
+import { HomeStackParamList } from "../../navigation/HomeStack";
 import { Post } from "../../types";
+import Avatar from "../../components/Avatar";
+import PostItem from "../../components/PostItem";
+import CommentModal from "../../components/CommentModal";
 
-type MyPageNav = NativeStackNavigationProp<MyPageStackParamList, "MyPage">;
+type MyPageNav = NativeStackNavigationProp<HomeStackParamList, "MyPage">;
 
 export function MyPageScreen() {
   const navigation = useNavigation<MyPageNav>();
@@ -29,6 +34,13 @@ export function MyPageScreen() {
   const [newPostText, setNewPostText] = useState("");
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
+  const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
+  const [commentModal, setCommentModal] = useState<{
+    visible: boolean;
+    postOwnerUid: string;
+    postId: string;
+  }>({ visible: false, postOwnerUid: "", postId: "" });
+  const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -36,15 +48,26 @@ export function MyPageScreen() {
       collection(db, "users", user.uid, "posts"),
       orderBy("createdAt", "asc")
     );
-    const unsubscribe = onSnapshot(q, (snap) => {
+    const unsubscribe = onSnapshot(q, async (snap) => {
       const postList: Post[] = snap.docs.map((d) => ({
         postId: d.id,
         text: d.data().text,
         createdAt: d.data().createdAt?.toDate() ?? new Date(),
         commentCount: d.data().commentCount ?? 0,
+        likeCount: d.data().likeCount ?? 0,
       }));
       setPosts(postList);
       setLoading(false);
+
+      // Batch check likes
+      const likeChecks = await Promise.all(
+        postList.map((p) => hasLiked(user.uid, p.postId, user.uid))
+      );
+      const newLikedMap: Record<string, boolean> = {};
+      postList.forEach((p, i) => {
+        newLikedMap[p.postId] = likeChecks[i];
+      });
+      setLikedMap(newLikedMap);
     });
     return unsubscribe;
   }, [user]);
@@ -62,17 +85,59 @@ export function MyPageScreen() {
     }
   }
 
-  async function handleLogout() {
+  async function handleLikeToggle(postId: string) {
+    if (!user) return;
+    const isLiked = likedMap[postId] ?? false;
+
+    // Optimistic update
+    setLikedMap((prev) => ({ ...prev, [postId]: !isLiked }));
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.postId === postId
+          ? { ...p, likeCount: p.likeCount + (isLiked ? -1 : 1) }
+          : p
+      )
+    );
+
     try {
-      await logOut();
-    } catch (err: any) {
-      Alert.alert("Error", err.message);
+      if (isLiked) {
+        await unlikePost(user.uid, postId, user.uid);
+      } else {
+        await likePost(user.uid, postId, user.uid);
+      }
+    } catch {
+      // Revert on error
+      setLikedMap((prev) => ({ ...prev, [postId]: isLiked }));
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.postId === postId
+            ? { ...p, likeCount: p.likeCount + (isLiked ? 1 : -1) }
+            : p
+        )
+      );
     }
+  }
+
+  function handleLogout() {
+    Alert.alert("Settings", "What would you like to do?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Log Out",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await logOut();
+          } catch (err: any) {
+            Alert.alert("Error", err.message);
+          }
+        },
+      },
+    ]);
   }
 
   if (loading) {
     return (
-      <View className="flex-1 justify-center items-center">
+      <View className="flex-1 justify-center items-center bg-white">
         <ActivityIndicator size="large" />
       </View>
     );
@@ -80,70 +145,104 @@ export function MyPageScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1"
+      className="flex-1 bg-white"
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <View className="flex-row justify-between items-center p-4 border-b border-gray-200">
-        <Text className="text-base font-semibold">@{user?.username}</Text>
-        <TouchableOpacity onPress={handleLogout}>
-          <Text className="text-peach text-sm">Log Out</Text>
-        </TouchableOpacity>
+      {/* Custom header */}
+      <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-100 bg-white">
+        <View className="flex-row items-center flex-1">
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="chevron-back" size={24} color="black" />
+          </TouchableOpacity>
+          <View className="flex-row items-center ml-2">
+            <Avatar size={32} />
+            <View className="ml-2">
+              <Text className="text-base font-semibold">
+                {user?.displayName}
+              </Text>
+              <Text className="text-sm text-gray-400">@{user?.username}</Text>
+            </View>
+          </View>
+        </View>
+        <View className="flex-row items-center gap-3">
+          <TouchableOpacity
+            onPress={() => Alert.alert("Coming soon", "Activity log is coming soon!")}
+          >
+            <Ionicons name="notifications-outline" size={22} color="black" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleLogout}>
+            <Ionicons name="settings-outline" size={22} color="black" />
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {/* Post feed */}
       <FlatList
-        ref={(ref) => {
-          if (ref && posts.length > 0) {
-            setTimeout(() => ref.scrollToEnd({ animated: false }), 100);
-          }
-        }}
+        ref={flatListRef}
         data={posts}
         keyExtractor={(item) => item.postId}
+        onContentSizeChange={() => {
+          if (posts.length > 0) {
+            flatListRef.current?.scrollToEnd({ animated: false });
+          }
+        }}
         renderItem={({ item }) => (
-          <TouchableOpacity
-            className="p-4 border-b border-gray-200"
-            onPress={() =>
-              navigation.navigate("PostDetail", {
+          <PostItem
+            text={item.text}
+            createdAt={item.createdAt}
+            commentCount={item.commentCount}
+            likeCount={item.likeCount}
+            isLiked={likedMap[item.postId] ?? false}
+            onLikePress={() => handleLikeToggle(item.postId)}
+            onCommentPress={() =>
+              setCommentModal({
+                visible: true,
                 postOwnerUid: user!.uid,
                 postId: item.postId,
               })
             }
-          >
-            <Text className="text-base mb-1">{item.text}</Text>
-            <View className="flex-row justify-between items-center">
-              <Text className="text-xs text-gray-400">
-                {item.createdAt.toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
-              </Text>
-              {item.commentCount > 0 && (
-                <Text className="text-xs text-gray-400">
-                  {item.commentCount} comment{item.commentCount === 1 ? "" : "s"}
-                </Text>
-              )}
-            </View>
-          </TouchableOpacity>
+          />
         )}
         ListEmptyComponent={
           <View className="flex-1 justify-center items-center p-6">
-            <Text className="text-sm text-gray-400">No posts yet. Write your first one!</Text>
+            <Text className="text-sm text-gray-400">
+              No posts yet. Write your first one!
+            </Text>
           </View>
         }
       />
-      <View className="p-4 border-t border-gray-200">
+
+      {/* Composer */}
+      <View className="flex-row items-center p-3 border-t border-gray-100 bg-white">
         <TextInput
-          className="border border-gray-300 rounded-lg p-3 text-base min-h-[60px] mb-2"
-          placeholder="What's on your mind?"
+          className="flex-1 bg-gray-50 rounded-full px-4 py-2 text-sm mr-2"
+          placeholder="write something..."
           value={newPostText}
           onChangeText={setNewPostText}
           multiline
         />
         <TouchableOpacity
-          className={`rounded-lg p-2.5 items-center ${newPostText.trim() ? "bg-peach" : "bg-gray-300"}`}
+          className={`rounded-full px-5 py-2 ${
+            newPostText.trim() ? "bg-peach" : "bg-gray-300"
+          }`}
           onPress={handlePost}
           disabled={posting || !newPostText.trim()}
         >
-          <Text className="text-white font-semibold">
-            {posting ? "Posting..." : "Post"}
+          <Text className="text-white font-semibold text-sm">
+            {posting ? "..." : "Post"}
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Comment Modal */}
+      <CommentModal
+        visible={commentModal.visible}
+        onClose={() =>
+          setCommentModal({ ...commentModal, visible: false })
+        }
+        postOwnerUid={commentModal.postOwnerUid}
+        postId={commentModal.postId}
+      />
     </KeyboardAvoidingView>
   );
 }
