@@ -13,8 +13,10 @@ import { useAuth } from "../../contexts/AuthContext";
 import {
   getPendingRequests,
   getOutgoingRequests,
+  getFriendships,
   acceptFriendRequest,
   declineFriendRequest,
+  removeFriend,
 } from "../../services/friendships";
 import { getUserByUid } from "../../services/users";
 import { FriendsStackParamList } from "../../navigation/FriendsStack";
@@ -31,14 +33,16 @@ export function FriendRequestsScreen() {
   const { user } = useAuth();
   const [incoming, setIncoming] = useState<RequestWithName[]>([]);
   const [outgoing, setOutgoing] = useState<RequestWithName[]>([]);
+  const [friends, setFriends] = useState<RequestWithName[]>([]);
   const [loading, setLoading] = useState(true);
 
-  async function loadRequests() {
+  async function loadAll() {
     if (!user) return;
     setLoading(true);
-    const [inc, out] = await Promise.all([
+    const [inc, out, accepted] = await Promise.all([
       getPendingRequests(user.uid),
       getOutgoingRequests(user.uid),
+      getFriendships(user.uid),
     ]);
 
     const incomingWithNames = await Promise.all(
@@ -55,19 +59,28 @@ export function FriendRequestsScreen() {
       })
     );
 
+    const friendsWithNames = await Promise.all(
+      accepted.map(async (f) => {
+        const friendUid = f.requesterId === user.uid ? f.receiverId : f.requesterId;
+        const friend = await getUserByUid(friendUid);
+        return { ...f, otherDisplayName: friend?.displayName ?? "Unknown" };
+      })
+    );
+
     setIncoming(incomingWithNames);
     setOutgoing(outgoingWithNames);
+    setFriends(friendsWithNames);
     setLoading(false);
   }
 
   useEffect(() => {
-    loadRequests();
+    loadAll();
   }, [user]);
 
   async function handleAccept(friendshipId: string) {
     try {
       await acceptFriendRequest(friendshipId);
-      await loadRequests();
+      await loadAll();
     } catch (err: any) {
       Alert.alert("Error", err.message);
     }
@@ -76,10 +89,32 @@ export function FriendRequestsScreen() {
   async function handleDecline(friendshipId: string) {
     try {
       await declineFriendRequest(friendshipId);
-      await loadRequests();
+      await loadAll();
     } catch (err: any) {
       Alert.alert("Error", err.message);
     }
+  }
+
+  async function handleRemoveFriend(friendshipId: string, displayName: string) {
+    Alert.alert(
+      "Remove Friend",
+      `Are you sure you want to unfriend ${displayName}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await removeFriend(friendshipId);
+              await loadAll();
+            } catch (err: any) {
+              Alert.alert("Error", err.message);
+            }
+          },
+        },
+      ]
+    );
   }
 
   if (loading) {
@@ -91,6 +126,7 @@ export function FriendRequestsScreen() {
   }
 
   const sections = [
+    { title: "Your Friends", data: friends },
     { title: "Incoming Requests", data: incoming },
     { title: "Outgoing Requests", data: outgoing },
   ];
@@ -108,7 +144,14 @@ export function FriendRequestsScreen() {
         renderItem={({ item, section }) => (
           <View className="flex-row justify-between items-center p-4 border-b border-gray-200">
             <Text className="text-base font-medium">{item.otherDisplayName}</Text>
-            {section.title === "Incoming Requests" ? (
+            {section.title === "Your Friends" ? (
+              <TouchableOpacity
+                className="border border-gray-300 rounded-md py-1.5 px-3.5"
+                onPress={() => handleRemoveFriend(item.friendshipId, item.otherDisplayName)}
+              >
+                <Text className="text-gray-400 font-semibold text-sm">Unfriend</Text>
+              </TouchableOpacity>
+            ) : section.title === "Incoming Requests" ? (
               <View className="flex-row gap-2">
                 <TouchableOpacity
                   className="bg-peach rounded-md py-1.5 px-3.5"

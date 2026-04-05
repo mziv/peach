@@ -86,6 +86,10 @@ export async function getOutgoingRequests(uid: string): Promise<Friendship[]> {
   return snap.docs.map(docToFriendship);
 }
 
+export async function removeFriend(friendshipId: string): Promise<void> {
+  await deleteDoc(doc(db, "friendships", friendshipId));
+}
+
 export async function getFriendshipBetween(
   uid1: string,
   uid2: string
