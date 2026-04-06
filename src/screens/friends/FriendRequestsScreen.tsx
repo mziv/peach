@@ -21,7 +21,7 @@ import {
 import { getUserByUid } from "../../services/users";
 import { FriendsStackParamList } from "../../navigation/FriendsStack";
 import { Friendship } from "../../types";
-import { Avatar } from "../../components/Avatar";
+import Avatar from "../../components/Avatar";
 
 type FriendsNav = NativeStackNavigationProp<FriendsStackParamList, "FriendRequests">;
 
@@ -141,12 +141,14 @@ export function FriendRequestsScreen() {
       </View>
 
       {/* Add Friend button */}
-      <TouchableOpacity
-        className="bg-green rounded-full py-3 mx-4 my-3 items-center"
-        onPress={() => navigation.navigate("SearchUsers")}
-      >
-        <Text className="text-white font-semibold">Add Friend...</Text>
-      </TouchableOpacity>
+      <View className="items-center my-3">
+        <TouchableOpacity
+          className="bg-green rounded-full py-3 items-center w-1/2"
+          onPress={() => navigation.navigate("SearchUsers")}
+        >
+          <Text className="text-white font-semibold">Add Friend...</Text>
+        </TouchableOpacity>
+      </View>
 
       <SectionList
         sections={sections}

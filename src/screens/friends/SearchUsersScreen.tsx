@@ -17,7 +17,7 @@ import {
   getFriendshipBetween,
 } from "../../services/friendships";
 import { User } from "../../types";
-import { Avatar } from "../../components/Avatar";
+import Avatar from "../../components/Avatar";
 import { FriendsStackParamList } from "../../navigation/FriendsStack";
 
 type SearchNav = NativeStackNavigationProp<FriendsStackParamList, "SearchUsers">;

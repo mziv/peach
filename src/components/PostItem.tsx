@@ -24,11 +24,8 @@ export default function PostItem({
 }: PostItemProps) {
   return (
     <View className="p-4 border-b border-gray-100">
-      <Text className="text-base">{text}</Text>
-      <Text className="text-xs text-gray-400 mt-1">
-        {createdAt.toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
-      </Text>
-      <View className="flex-row items-center gap-4 mt-2">
+      <Text className="text-base mb-2">{text}</Text>
+      <View className="flex-row items-center gap-4">
         <TouchableOpacity
           className="flex-row items-center gap-1"
           onPress={onLikePress}
@@ -47,7 +44,8 @@ export default function PostItem({
           <Ionicons name="chatbubble-outline" size={18} color="gray" />
           <Text className="text-xs text-gray-500">{commentCount}</Text>
         </TouchableOpacity>
-        <Text className="text-xs text-gray-400 ml-auto">
+        <Text className="text-xs text-gray-300">—</Text>
+        <Text className="text-xs text-gray-400">
           {relativeTime(createdAt)}
         </Text>
       </View>
