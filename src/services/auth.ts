@@ -2,6 +2,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import {
   doc,
@@ -47,4 +48,18 @@ export async function logIn(email: string, password: string): Promise<void> {
 
 export async function logOut(): Promise<void> {
   await signOut(auth);
+}
+
+export async function resetPassword(email: string): Promise<void> {
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (err: any) {
+    if (
+      err.code === "auth/user-not-found" ||
+      err.code === "auth/invalid-email"
+    ) {
+      return; // Suppress for privacy — caller always shows generic success
+    }
+    throw err; // Re-throw network errors etc.
+  }
 }
