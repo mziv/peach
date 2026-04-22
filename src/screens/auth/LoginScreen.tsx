@@ -55,6 +55,11 @@ export function LoginScreen() {
           {loading ? "Logging in..." : "Log In"}
         </Text>
       </TouchableOpacity>
+      <TouchableOpacity onPress={() => navigation.navigate("ForgotPassword")}>
+        <Text className="text-center text-peach text-sm mb-2">
+          Forgot your password?
+        </Text>
+      </TouchableOpacity>
       <TouchableOpacity onPress={() => navigation.navigate("SignUp")}>
         <Text className="text-center text-peach text-sm">
           Don't have an account? Sign up
