@@ -149,8 +149,10 @@ export default function CommentModal({
           />
         </Animated.View>
         <Animated.View
-          className="flex-[0.6]"
-          style={{ transform: [{ translateY: panelTranslateY }] }}
+          style={{
+            height: "60%",
+            transform: [{ translateY: panelTranslateY }],
+          }}
         >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
