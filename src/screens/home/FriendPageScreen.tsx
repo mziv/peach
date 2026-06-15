@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -6,7 +6,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import {
+  useNavigation,
+  useRoute,
+  useFocusEffect,
+  RouteProp,
+} from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
@@ -72,13 +77,15 @@ export function FriendPageScreen() {
     return unsubscribe;
   }, [friendUid, user]);
 
-  useEffect(() => {
-    if (user) {
-      markFriendViewed(user.uid, friendUid).catch(() => {
-        // A failed write just leaves the dot until the next successful view.
-      });
-    }
-  }, [friendUid, user]);
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        markFriendViewed(user.uid, friendUid).catch(() => {
+          // A failed write just leaves the dot until the next successful view.
+        });
+      }
+    }, [friendUid, user])
+  );
 
   async function handleLikeToggle(postId: string) {
     if (!user) return;
