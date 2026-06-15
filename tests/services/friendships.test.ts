@@ -1,4 +1,4 @@
-import { doc, setDoc, getDocs, updateDoc, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, getDocs, updateDoc, deleteDoc } from "firebase/firestore";
 import {
   pairId,
   sendFriendRequest,
@@ -6,6 +6,7 @@ import {
   declineFriendRequest,
   getFriendships,
   getPendingRequests,
+  getFriendshipStatus,
 } from "../../src/services/friendships";
 
 jest.mock("firebase/firestore", () => ({
@@ -120,6 +121,41 @@ describe("friendships service", () => {
 
       expect(requests).toHaveLength(1);
       expect(requests[0].requesterId).toBe("uid-3");
+    });
+  });
+
+  describe("getFriendshipStatus", () => {
+    it("returns the friendship's status when one exists", async () => {
+      (getDoc as jest.Mock).mockResolvedValue({
+        id: "uid-1_uid-2",
+        exists: () => true,
+        data: () => ({
+          requesterId: "uid-1",
+          receiverId: "uid-2",
+          status: "pending",
+          createdAt: { toDate: () => new Date("2026-01-01") },
+        }),
+      });
+
+      expect(await getFriendshipStatus("uid-1", "uid-2")).toBe("pending");
+    });
+
+    it("returns 'none' when no friendship doc exists", async () => {
+      (getDoc as jest.Mock).mockResolvedValue({ exists: () => false });
+
+      expect(await getFriendshipStatus("uid-1", "uid-2")).toBe("none");
+    });
+
+    it("returns 'none' instead of throwing when the lookup fails", async () => {
+      // A permission-denied / transient read must not reject — otherwise one
+      // bad probe rejects the search's Promise.all and blanks all results.
+      (getDoc as jest.Mock).mockRejectedValue(
+        new Error("permission-denied")
+      );
+
+      await expect(getFriendshipStatus("uid-1", "uid-2")).resolves.toBe(
+        "none"
+      );
     });
   });
 });

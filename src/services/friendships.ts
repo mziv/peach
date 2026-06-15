@@ -109,3 +109,23 @@ export async function getFriendshipBetween(
   if (!snap.exists()) return null;
   return docToFriendship(snap);
 }
+
+export type FriendshipStatus = "none" | "pending" | "accepted";
+
+/**
+ * The signed-in user's relationship to `otherUid`, for UI such as search rows.
+ * Resilient by design: a failed lookup (transient error, permission hiccup)
+ * resolves to "none" so one bad probe can't reject a Promise.all and blank an
+ * entire result list — the row simply shows as addable.
+ */
+export async function getFriendshipStatus(
+  selfUid: string,
+  otherUid: string
+): Promise<FriendshipStatus> {
+  try {
+    const friendship = await getFriendshipBetween(selfUid, otherUid);
+    return friendship ? friendship.status : "none";
+  } catch {
+    return "none";
+  }
+}
