@@ -10,6 +10,7 @@ import {
   Platform,
   Animated,
   Dimensions,
+  StyleSheet,
 } from "react-native";
 import { Ionicons } from "expo/node_modules/@expo/vector-icons";
 import {
@@ -131,13 +132,18 @@ export default function CommentModal({
       onRequestClose={onClose}
     >
       <View className="flex-1 justify-end">
-        {/* Backdrop: fades in place, independent of the sliding panel */}
+        {/* Backdrop: fades in place, independent of the sliding panel.
+            NativeWind's className isn't applied to Animated.View, so the
+            background and fill are set via style. */}
         <Animated.View
-          className="absolute inset-0 bg-black/40"
-          style={{ opacity: backdropOpacity }}
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            backgroundColor: "rgba(0, 0, 0, 0.4)",
+            opacity: backdropOpacity,
+          }}
         >
           <TouchableOpacity
-            className="flex-1"
+            style={{ flex: 1 }}
             activeOpacity={1}
             onPress={onClose}
           />
