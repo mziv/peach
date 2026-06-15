@@ -24,21 +24,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
-      if (fbUser) {
-        const snap = await getDoc(doc(db, "users", fbUser.uid));
-        if (snap.exists()) {
-          const data = snap.data();
-          setUser({
-            uid: data.uid,
-            username: data.username,
-            displayName: data.displayName,
-            createdAt: data.createdAt?.toDate() ?? new Date(),
-          });
+      try {
+        if (fbUser) {
+          const snap = await getDoc(doc(db, "users", fbUser.uid));
+          if (snap.exists()) {
+            const data = snap.data();
+            setUser({
+              uid: data.uid,
+              username: data.username,
+              displayName: data.displayName,
+              createdAt: data.createdAt?.toDate() ?? new Date(),
+            });
+          }
+        } else {
+          setUser(null);
         }
-      } else {
-        setUser(null);
+      } catch (err) {
+        // Never leave the app stuck on the loading spinner if the user
+        // document fails to load — surface the error and continue.
+        console.error("Failed to load user profile:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
     return unsubscribe;
   }, []);

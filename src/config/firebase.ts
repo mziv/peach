@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, initializeAuth, getReactNativePersistence } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 import { Platform } from "react-native";
 
 const firebaseConfig = {
@@ -26,4 +26,10 @@ if (Platform.OS === "web") {
 }
 
 export { auth };
-export const db = getFirestore(app);
+
+// On mobile browsers/networks, Firestore's default WebChannel streaming
+// transport often stalls before falling back to long-polling, leaving the
+// app stuck. Auto-detecting long-polling avoids that initial stall.
+export const db = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true,
+});
