@@ -89,6 +89,7 @@ export function MyPageScreen() {
   async function handleLikeToggle(postId: string) {
     if (!user) return;
     const isLiked = likedMap[postId] ?? false;
+    const post = posts.find((p) => p.postId === postId);
 
     // Optimistic update
     setLikedMap((prev) => ({ ...prev, [postId]: !isLiked }));
@@ -104,7 +105,14 @@ export function MyPageScreen() {
       if (isLiked) {
         await unlikePost(user.uid, postId, user.uid);
       } else {
-        await likePost(user.uid, postId, user.uid);
+        await likePost(
+          user.uid,
+          postId,
+          user.uid,
+          user.username,
+          user.displayName,
+          post?.text ?? ""
+        );
       }
     } catch {
       // Revert on error
