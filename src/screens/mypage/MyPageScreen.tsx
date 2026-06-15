@@ -77,6 +77,7 @@ export function MyPageScreen() {
   }, [user]);
 
   useEffect(() => {
+    if (!user) return;
     const focusPostId = route.params?.focusPostId;
     if (!focusPostId || posts.length === 0) return;
     const index = posts.findIndex((p) => p.postId === focusPostId);
@@ -86,7 +87,7 @@ export function MyPageScreen() {
       const post = posts[index];
       setCommentModal({
         visible: true,
-        postOwnerUid: user!.uid,
+        postOwnerUid: user.uid,
         postId: post.postId,
         postText: post.text,
       });
