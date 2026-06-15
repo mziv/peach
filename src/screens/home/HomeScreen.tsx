@@ -12,6 +12,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../config/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { getFriendships } from "../../services/friendships";
+import { getViewedMap, hasNewActivity } from "../../services/viewedFriends";
 import { HomeStackParamList } from "../../navigation/HomeStack";
 import UserPreview from "../../components/UserPreview";
 
@@ -23,6 +24,7 @@ interface FriendWithMeta {
 	username: string;
 	lastPostText: string;
 	lastPostAt: Date | null;
+	hasNewActivity: boolean;
 }
 
 interface SelfMeta {
@@ -62,6 +64,7 @@ export function HomeScreen() {
 
 				// Fetch friendships and friend meta
 				const friendships = await getFriendships(user!.uid);
+				const viewedMap = await getViewedMap(user!.uid);
 
 				const friendUids = friendships.map((f) =>
 					f.requesterId === user!.uid ? f.receiverId : f.requesterId,
@@ -77,12 +80,18 @@ export function HomeScreen() {
 					if (userSnap.exists()) {
 						const userData = userSnap.data();
 						const metaData = metaSnap.exists() ? metaSnap.data() : null;
+						const friendLastPostAt =
+							metaData?.lastPostAt?.toDate() ?? null;
 						friendsWithMeta.push({
 							uid: friendUid,
 							displayName: userData.displayName,
 							username: userData.username,
 							lastPostText: metaData?.lastPostText ?? "",
-							lastPostAt: metaData?.lastPostAt?.toDate() ?? null,
+							lastPostAt: friendLastPostAt,
+							hasNewActivity: hasNewActivity(
+								friendLastPostAt,
+								viewedMap[friendUid]
+							),
 						});
 					}
 				}
@@ -149,6 +158,7 @@ export function HomeScreen() {
 						username={item.username}
 						previewText={item.lastPostText || "No posts yet"}
 						timestamp={item.lastPostAt}
+						hasNewActivity={item.hasNewActivity}
 						onPress={() =>
 							navigation.navigate("FriendPage", {
 								friendUid: item.uid,
