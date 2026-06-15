@@ -6,7 +6,8 @@ import Avatar from "./Avatar";
 
 interface ActivityRowProps {
   notification: Notification;
-  onPress: () => void;
+  /** Omit to render a non-interactive row (e.g. likes, which have nowhere useful to go). */
+  onPress?: () => void;
 }
 
 export default function ActivityRow({ notification, onPress }: ActivityRowProps) {
@@ -19,11 +20,8 @@ export default function ActivityRow({ notification, onPress }: ActivityRowProps)
       ? notification.commentText ?? ""
       : notification.postTextPreview;
 
-  return (
-    <TouchableOpacity
-      className="flex-row px-4 py-3 border-b border-gray-100"
-      onPress={onPress}
-    >
+  const content = (
+    <>
       <Avatar size={40} displayName={notification.actorDisplayName} />
       <View className="ml-3 flex-1">
         <View className="flex-row items-center justify-between">
@@ -44,6 +42,18 @@ export default function ActivityRow({ notification, onPress }: ActivityRowProps)
           </Text>
         ) : null}
       </View>
+    </>
+  );
+
+  const className = "flex-row px-4 py-3 border-b border-gray-100";
+
+  if (!onPress) {
+    return <View className={className}>{content}</View>;
+  }
+
+  return (
+    <TouchableOpacity className={className} onPress={onPress}>
+      {content}
     </TouchableOpacity>
   );
 }

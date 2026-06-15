@@ -44,4 +44,11 @@ describe("ActivityRow", () => {
     fireEvent.press(getByText("Bob Jones"));
     expect(onPress).toHaveBeenCalled();
   });
+
+  it("renders a non-interactive row when onPress is omitted", () => {
+    const { getByText } = render(<ActivityRow notification={baseNotif} />);
+    // Still renders its content, just not wrapped in a pressable.
+    expect(getByText("Bob Jones")).toBeTruthy();
+    expect(getByText("liked your post")).toBeTruthy();
+  });
 });

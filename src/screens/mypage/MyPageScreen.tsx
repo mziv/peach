@@ -77,22 +77,18 @@ export function MyPageScreen() {
 
   useEffect(() => {
     if (!user) return;
-    const focusPostId = route.params?.focusPostId;
-    if (!focusPostId || posts.length === 0) return;
-    const index = posts.findIndex((p) => p.postId === focusPostId);
-    if (index < 0) return;
-    flatListRef.current?.scrollToIndex({ index, animated: true });
-    if (route.params?.openComments) {
-      const post = posts[index];
-      setCommentModal({
-        visible: true,
-        postOwnerUid: user.uid,
-        postId: post.postId,
-        postText: post.text,
-      });
-    }
-    navigation.setParams({ focusPostId: undefined, openComments: undefined });
-  }, [route.params?.focusPostId, route.params?.openComments, posts]);
+    const postId = route.params?.openCommentPostId;
+    if (!postId || posts.length === 0) return;
+    const post = posts.find((p) => p.postId === postId);
+    if (!post) return;
+    setCommentModal({
+      visible: true,
+      postOwnerUid: user.uid,
+      postId: post.postId,
+      postText: post.text,
+    });
+    navigation.setParams({ openCommentPostId: undefined });
+  }, [route.params?.openCommentPostId, posts]);
 
   async function handlePost() {
     if (!newPostText.trim() || !user) return;
@@ -197,7 +193,6 @@ export function MyPageScreen() {
         ref={flatListRef}
         data={posts}
         keyExtractor={(item) => item.postId}
-        onScrollToIndexFailed={() => {}}
         onContentSizeChange={() => {
           if (posts.length > 0) {
             flatListRef.current?.scrollToEnd({ animated: false });

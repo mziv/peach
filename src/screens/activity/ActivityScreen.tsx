@@ -51,11 +51,16 @@ export function ActivityScreen() {
           renderItem={({ item }) => (
             <ActivityRow
               notification={item}
-              onPress={() =>
-                navigation.navigate("MyPage", {
-                  focusPostId: item.postId,
-                  openComments: item.type === "comment",
-                })
+              // Only comments are actionable — tapping opens that post's
+              // comment thread. Likes have nowhere useful to go, so they're
+              // non-interactive.
+              onPress={
+                item.type === "comment"
+                  ? () =>
+                      navigation.navigate("MyPage", {
+                        openCommentPostId: item.postId,
+                      })
+                  : undefined
               }
             />
           )}

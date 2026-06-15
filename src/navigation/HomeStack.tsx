@@ -9,7 +9,7 @@ import { SettingsScreen } from "../screens/settings/SettingsScreen";
 
 export type HomeStackParamList = {
   Home: undefined;
-  MyPage: { focusPostId?: string; openComments?: boolean } | undefined;
+  MyPage: { openCommentPostId?: string } | undefined;
   FriendPage: { friendUid: string; friendDisplayName: string; friendUsername: string };
   SearchUsers: undefined;
   Activity: undefined;
