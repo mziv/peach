@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, TouchableOpacity } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,13 +18,17 @@ export function ActivityScreen() {
   const navigation = useNavigation<ActivityNav>();
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
-    const unsub = subscribeNotifications(user.uid, setNotifications);
+    const unsub = subscribeNotifications(user.uid, (n) => {
+      setNotifications(n);
+      setLoading(false);
+    });
     markActivityRead(user.uid).catch(() => {});
     return unsub;
-  }, [user]);
+  }, [user?.uid]);
 
   return (
     <View className="flex-1 bg-white">
@@ -36,26 +40,32 @@ export function ActivityScreen() {
         <Text className="text-lg font-semibold ml-2">Activity</Text>
       </View>
 
-      <FlatList
-        data={notifications}
-        keyExtractor={(item) => item.notifId}
-        renderItem={({ item }) => (
-          <ActivityRow
-            notification={item}
-            onPress={() =>
-              navigation.navigate("MyPage", {
-                focusPostId: item.postId,
-                openComments: item.type === "comment",
-              })
-            }
-          />
-        )}
-        ListEmptyComponent={
-          <View className="flex-1 justify-center items-center p-6">
-            <Text className="text-sm text-gray-400">No activity yet.</Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" />
+        </View>
+      ) : (
+        <FlatList
+          data={notifications}
+          keyExtractor={(item) => item.notifId}
+          renderItem={({ item }) => (
+            <ActivityRow
+              notification={item}
+              onPress={() =>
+                navigation.navigate("MyPage", {
+                  focusPostId: item.postId,
+                  openComments: item.type === "comment",
+                })
+              }
+            />
+          )}
+          ListEmptyComponent={
+            <View className="flex-1 justify-center items-center p-6">
+              <Text className="text-sm text-gray-400">No activity yet.</Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 }
