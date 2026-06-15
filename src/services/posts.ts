@@ -5,6 +5,7 @@ import {
   getDoc,
   query,
   orderBy,
+  limit,
   serverTimestamp,
   writeBatch,
 } from "firebase/firestore";
@@ -62,4 +63,50 @@ export async function getPost(
     commentCount: data.commentCount ?? 0,
     likeCount: data.likeCount ?? 0,
   };
+}
+
+export async function deletePost(uid: string, postId: string): Promise<void> {
+  const batch = writeBatch(db);
+
+  // Firestore does not cascade subcollection deletes, so remove the post's
+  // comments and likes explicitly. At this app's scale these stay well within
+  // a batch's 500-op limit.
+  const commentsSnap = await getDocs(
+    collection(db, "users", uid, "posts", postId, "comments")
+  );
+  commentsSnap.docs.forEach((d) => batch.delete(d.ref));
+
+  const likesSnap = await getDocs(
+    collection(db, "users", uid, "posts", postId, "likes")
+  );
+  likesSnap.docs.forEach((d) => batch.delete(d.ref));
+
+  batch.delete(doc(db, "users", uid, "posts", postId));
+
+  // Recompute the "last post" preview in meta. Fetch the two most-recent posts
+  // so we can pick the latest one that isn't the post being deleted.
+  const recentSnap = await getDocs(
+    query(
+      collection(db, "users", uid, "posts"),
+      orderBy("createdAt", "desc"),
+      limit(2)
+    )
+  );
+  const nextLatest = recentSnap.docs.find((d) => d.id !== postId);
+
+  const metaRef = doc(db, "users", uid, "meta", "meta");
+  if (nextLatest) {
+    batch.set(
+      metaRef,
+      {
+        lastPostText: (nextLatest.data().text ?? "").slice(0, 100),
+        lastPostAt: nextLatest.data().createdAt ?? null,
+      },
+      { merge: true }
+    );
+  } else {
+    batch.set(metaRef, { lastPostText: "", lastPostAt: null }, { merge: true });
+  }
+
+  await batch.commit();
 }
