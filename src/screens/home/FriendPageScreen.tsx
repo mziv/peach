@@ -37,7 +37,8 @@ export function FriendPageScreen() {
     visible: boolean;
     postOwnerUid: string;
     postId: string;
-  }>({ visible: false, postOwnerUid: "", postId: "" });
+    postText: string;
+  }>({ visible: false, postOwnerUid: "", postId: "", postText: "" });
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -157,6 +158,7 @@ export function FriendPageScreen() {
                 visible: true,
                 postOwnerUid: friendUid,
                 postId: item.postId,
+                postText: item.text,
               })
             }
           />
@@ -176,6 +178,7 @@ export function FriendPageScreen() {
         }
         postOwnerUid={commentModal.postOwnerUid}
         postId={commentModal.postId}
+        postText={commentModal.postText}
       />
     </View>
   );

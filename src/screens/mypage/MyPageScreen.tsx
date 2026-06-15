@@ -39,7 +39,8 @@ export function MyPageScreen() {
     visible: boolean;
     postOwnerUid: string;
     postId: string;
-  }>({ visible: false, postOwnerUid: "", postId: "" });
+    postText: string;
+  }>({ visible: false, postOwnerUid: "", postId: "", postText: "" });
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -199,6 +200,7 @@ export function MyPageScreen() {
                 visible: true,
                 postOwnerUid: user!.uid,
                 postId: item.postId,
+                postText: item.text,
               })
             }
           />
@@ -242,6 +244,7 @@ export function MyPageScreen() {
         }
         postOwnerUid={commentModal.postOwnerUid}
         postId={commentModal.postId}
+        postText={commentModal.postText}
       />
     </KeyboardAvoidingView>
   );
