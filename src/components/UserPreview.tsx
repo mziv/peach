@@ -6,6 +6,7 @@ import { relativeTime } from "../utils/relativeTime";
 
 interface UserPreviewProps {
   displayName: string;
+  photoURL?: string;
   username: string;
   previewText: string;
   timestamp?: Date | null;
@@ -15,6 +16,7 @@ interface UserPreviewProps {
 
 export default function UserPreview({
   displayName,
+  photoURL,
   username,
   previewText,
   timestamp,
@@ -26,7 +28,7 @@ export default function UserPreview({
       className="flex-row items-center p-4 border-b border-gray-100"
       onPress={onPress}
     >
-      <Avatar size={40} displayName={displayName} />
+      <Avatar size={40} displayName={displayName} photoURL={photoURL} />
       <View className="flex-1 ml-3">
         <Text className="text-base font-semibold">{displayName}</Text>
         <View className="flex-row items-center">
