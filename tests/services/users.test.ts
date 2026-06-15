@@ -47,6 +47,23 @@ describe("users service", () => {
       });
     });
 
+    it("returns photoURL as undefined when the field is absent", async () => {
+      const mockData = {
+        uid: "uid-1",
+        username: "alice",
+        displayName: "Alice",
+        createdAt: { toDate: () => new Date("2026-01-01") },
+      };
+      (getDoc as jest.Mock).mockResolvedValue({
+        exists: () => true,
+        data: () => mockData,
+      });
+
+      const user = await getUserByUid("uid-1");
+
+      expect(user?.photoURL).toBeUndefined();
+    });
+
     it("returns null when user does not exist", async () => {
       (getDoc as jest.Mock).mockResolvedValue({
         exists: () => false,
@@ -74,8 +91,13 @@ describe("users service", () => {
       const users = await searchUsersByUsername("bob");
 
       expect(users).toHaveLength(1);
-      expect(users[0].username).toBe("bob");
-      expect(users[0].photoURL).toBe("https://example.com/bob.jpg");
+      expect(users[0]).toEqual({
+        uid: "uid-2",
+        username: "bob",
+        displayName: "Bob",
+        photoURL: "https://example.com/bob.jpg",
+        createdAt: new Date("2026-01-01"),
+      });
     });
 
     it("returns empty array when no matches", async () => {
