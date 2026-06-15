@@ -162,6 +162,7 @@ describe("users service", () => {
       // 1 comment + 1 like + 1 post + 1 meta + 1 friendship + 1 user = 6 deletes
       expect(batch.delete).toHaveBeenCalledTimes(6);
       expect(batch.commit).toHaveBeenCalledTimes(1);
+      expect(ref).toHaveBeenCalledWith(expect.anything(), "avatars/uid-1");
       expect(deleteObject).toHaveBeenCalled();
     });
 
@@ -196,7 +197,9 @@ describe("users service", () => {
 
       expect(global.fetch).toHaveBeenCalledWith("file:///tmp/pic.jpg");
       expect(ref).toHaveBeenCalledWith(expect.anything(), "avatars/uid-1");
-      expect(uploadBytes).toHaveBeenCalledWith(expect.anything(), "mock-blob");
+      expect(uploadBytes).toHaveBeenCalledWith(expect.anything(), "mock-blob", {
+        contentType: "image/jpeg",
+      });
       expect(updateDoc).toHaveBeenCalledWith(expect.anything(), {
         photoURL: "https://cdn/avatar.jpg",
       });

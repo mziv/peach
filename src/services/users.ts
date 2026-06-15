@@ -67,7 +67,13 @@ export async function uploadProfilePhoto(
   const response = await fetch(localUri);
   const blob = await response.blob();
   const storageRef = ref(storage, `avatars/${uid}`);
-  await uploadBytes(storageRef, blob);
+  // Expo file:// blobs often have an empty `type`, which Storage would
+  // otherwise record as application/octet-stream. Default to JPEG (the picker
+  // delivers square-cropped library photos) so the stored content type is
+  // meaningful for CDN headers and Storage rules.
+  await uploadBytes(storageRef, blob, {
+    contentType: blob.type || "image/jpeg",
+  });
   const photoURL = await getDownloadURL(storageRef);
   await updateDoc(doc(db, "users", uid), { photoURL });
   return photoURL;
