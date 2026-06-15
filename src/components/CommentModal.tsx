@@ -21,7 +21,8 @@ import {
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { useAuth } from "../contexts/AuthContext";
-import { addComment } from "../services/comments";
+import { addComment, deleteComment } from "../services/comments";
+import { confirmDestructive, notify } from "../utils/dialog";
 import { Comment } from "../types";
 import Avatar from "./Avatar";
 
@@ -44,6 +45,9 @@ export default function CommentModal({
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Tracks comment deletes in flight so a double-tap can't fire deleteComment
+  // twice and over-decrement the post's commentCount.
+  const deletingIds = useRef<Set<string>>(new Set());
 
   // Keep the modal mounted while the close animation plays out.
   const [rendered, setRendered] = useState(visible);
@@ -128,6 +132,23 @@ export default function CommentModal({
     }
   }
 
+  async function handleDeleteComment(commentId: string) {
+    if (deletingIds.current.has(commentId)) return;
+    const confirmed = await confirmDestructive(
+      "Delete comment",
+      "Are you sure you want to delete this comment?"
+    );
+    if (!confirmed) return;
+    deletingIds.current.add(commentId);
+    try {
+      await deleteComment(postOwnerUid, postId, commentId);
+    } catch (err: any) {
+      notify("Error", err.message);
+    } finally {
+      deletingIds.current.delete(commentId);
+    }
+  }
+
   return (
     <Modal
       visible={rendered}
@@ -190,6 +211,14 @@ export default function CommentModal({
                   </Text>
                   <Text className="text-sm text-gray-700">{item.text}</Text>
                 </View>
+                {user?.uid === item.authorUid && (
+                  <TouchableOpacity
+                    className="pl-2 self-start"
+                    onPress={() => handleDeleteComment(item.commentId)}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="gray" />
+                  </TouchableOpacity>
+                )}
               </View>
             )}
           />

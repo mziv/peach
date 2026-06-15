@@ -1,5 +1,9 @@
 import { getDocs, writeBatch } from "firebase/firestore";
-import { addComment, getComments } from "../../src/services/comments";
+import {
+  addComment,
+  getComments,
+  deleteComment,
+} from "../../src/services/comments";
 
 jest.mock("firebase/firestore", () => ({
   collection: jest.fn(() => "mock-collection-ref"),
@@ -92,6 +96,25 @@ describe("comments service", () => {
       );
 
       expect(mockBatch.set).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("deleteComment", () => {
+    it("deletes the comment and decrements commentCount in a batch", async () => {
+      const mockBatch = {
+        delete: jest.fn(),
+        update: jest.fn(),
+        commit: jest.fn().mockResolvedValue(undefined),
+      };
+      (writeBatch as jest.Mock).mockReturnValue(mockBatch);
+
+      await deleteComment("uid-1", "post-1", "c-1");
+
+      expect(mockBatch.delete).toHaveBeenCalled();
+      expect(mockBatch.update).toHaveBeenCalledWith(expect.anything(), {
+        commentCount: "increment(-1)",
+      });
+      expect(mockBatch.commit).toHaveBeenCalled();
     });
   });
 

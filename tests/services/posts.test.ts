@@ -1,5 +1,10 @@
 import { getDocs, getDoc, writeBatch } from "firebase/firestore";
-import { createPost, getPostsByUser, getPost } from "../../src/services/posts";
+import {
+  createPost,
+  getPostsByUser,
+  getPost,
+  deletePost,
+} from "../../src/services/posts";
 
 jest.mock("firebase/firestore", () => ({
   collection: jest.fn(),
@@ -8,6 +13,7 @@ jest.mock("firebase/firestore", () => ({
   getDoc: jest.fn(),
   query: jest.fn(),
   orderBy: jest.fn(),
+  limit: jest.fn(),
   serverTimestamp: jest.fn(() => "mock-timestamp"),
   writeBatch: jest.fn(),
 }));
@@ -89,6 +95,79 @@ describe("posts service", () => {
       const post = await getPost("uid-1", "nonexistent");
 
       expect(post).toBeNull();
+    });
+  });
+
+  describe("deletePost", () => {
+    function makeBatch() {
+      return {
+        set: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+        commit: jest.fn().mockResolvedValue(undefined),
+      };
+    }
+
+    it("deletes the post and all of its comments and likes in a batch", async () => {
+      const mockBatch = makeBatch();
+      (writeBatch as jest.Mock).mockReturnValue(mockBatch);
+      (getDocs as jest.Mock)
+        // comments subcollection
+        .mockResolvedValueOnce({ docs: [{ ref: "c-1" }, { ref: "c-2" }] })
+        // likes subcollection
+        .mockResolvedValueOnce({ docs: [{ ref: "l-1" }] })
+        // recent-posts recompute query (only the deleted post remains)
+        .mockResolvedValueOnce({ docs: [{ id: "post-1", data: () => ({}) }] });
+
+      await deletePost("uid-1", "post-1");
+
+      // 2 comments + 1 like + 1 post = 4 deletes
+      expect(mockBatch.delete).toHaveBeenCalledTimes(4);
+      expect(mockBatch.commit).toHaveBeenCalled();
+    });
+
+    it("recomputes meta to the next-most-recent post", async () => {
+      const mockBatch = makeBatch();
+      (writeBatch as jest.Mock).mockReturnValue(mockBatch);
+      (getDocs as jest.Mock)
+        .mockResolvedValueOnce({ docs: [] }) // comments
+        .mockResolvedValueOnce({ docs: [] }) // likes
+        .mockResolvedValueOnce({
+          docs: [
+            { id: "post-1", data: () => ({ text: "deleted" }) },
+            {
+              id: "post-0",
+              data: () => ({ text: "older post", createdAt: "ts-older" }),
+            },
+          ],
+        });
+
+      await deletePost("uid-1", "post-1");
+
+      expect(mockBatch.set).toHaveBeenCalledWith(
+        expect.anything(),
+        { lastPostText: "older post", lastPostAt: "ts-older" },
+        { merge: true }
+      );
+    });
+
+    it("clears meta when no posts remain", async () => {
+      const mockBatch = makeBatch();
+      (writeBatch as jest.Mock).mockReturnValue(mockBatch);
+      (getDocs as jest.Mock)
+        .mockResolvedValueOnce({ docs: [] }) // comments
+        .mockResolvedValueOnce({ docs: [] }) // likes
+        .mockResolvedValueOnce({
+          docs: [{ id: "post-1", data: () => ({ text: "deleted" }) }],
+        });
+
+      await deletePost("uid-1", "post-1");
+
+      expect(mockBatch.set).toHaveBeenCalledWith(
+        expect.anything(),
+        { lastPostText: "", lastPostAt: null },
+        { merge: true }
+      );
     });
   });
 });

@@ -68,3 +68,20 @@ export async function getComments(
     createdAt: d.data().createdAt?.toDate() ?? new Date(),
   }));
 }
+
+export async function deleteComment(
+  postOwnerUid: string,
+  postId: string,
+  commentId: string
+): Promise<void> {
+  const batch = writeBatch(db);
+
+  batch.delete(
+    doc(db, "users", postOwnerUid, "posts", postId, "comments", commentId)
+  );
+
+  const postRef = doc(db, "users", postOwnerUid, "posts", postId);
+  batch.update(postRef, { commentCount: increment(-1) });
+
+  await batch.commit();
+}
