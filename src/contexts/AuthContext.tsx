@@ -8,12 +8,14 @@ interface AuthState {
   firebaseUser: FirebaseUser | null;
   user: User | null;
   loading: boolean;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState>({
   firebaseUser: null,
   user: null,
   loading: true,
+  refreshUser: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -21,24 +23,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  async function loadUser(fbUser: FirebaseUser | null) {
+    if (!fbUser) {
+      setUser(null);
+      return;
+    }
+    const snap = await getDoc(doc(db, "users", fbUser.uid));
+    if (snap.exists()) {
+      const data = snap.data();
+      setUser({
+        uid: data.uid,
+        username: data.username,
+        displayName: data.displayName,
+        createdAt: data.createdAt?.toDate() ?? new Date(),
+      });
+    }
+  }
+
+  async function refreshUser() {
+    await loadUser(auth.currentUser);
+  }
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
       try {
-        if (fbUser) {
-          const snap = await getDoc(doc(db, "users", fbUser.uid));
-          if (snap.exists()) {
-            const data = snap.data();
-            setUser({
-              uid: data.uid,
-              username: data.username,
-              displayName: data.displayName,
-              createdAt: data.createdAt?.toDate() ?? new Date(),
-            });
-          }
-        } else {
-          setUser(null);
-        }
+        await loadUser(fbUser);
       } catch (err) {
         // Never leave the app stuck on the loading spinner if the user
         // document fails to load — surface the error and continue.
@@ -51,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ firebaseUser, user, loading }}>
+    <AuthContext.Provider value={{ firebaseUser, user, loading, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
