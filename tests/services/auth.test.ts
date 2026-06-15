@@ -113,7 +113,16 @@ describe("auth service", () => {
 
     it("throws when there is no current user", async () => {
       (auth as any).currentUser = null;
-      await expect(reauthenticate("secret")).rejects.toThrow();
+      await expect(reauthenticate("secret")).rejects.toThrow(
+        "No authenticated user to re-authenticate"
+      );
+    });
+
+    it("throws when the current user has no email", async () => {
+      (auth as any).currentUser = { uid: "uid-1", email: null };
+      await expect(reauthenticate("secret")).rejects.toThrow(
+        "No authenticated user to re-authenticate"
+      );
     });
   });
 
@@ -138,6 +147,7 @@ describe("auth service", () => {
         code: "auth/requires-recent-login",
       });
       await reauthenticate("secret");
+      expect(reauthenticateWithCredential).toHaveBeenCalledTimes(1);
       await expect(deleteAuthAccount()).resolves.toBeUndefined();
     });
   });
