@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "../../config/firebase";
 import { useAuth } from "../../contexts/AuthContext";
-import { createPost } from "../../services/posts";
+import { createPost, deletePost } from "../../services/posts";
 import { likePost, unlikePost, hasLiked } from "../../services/likes";
 import { HomeStackParamList } from "../../navigation/HomeStack";
 import { Post } from "../../types";
@@ -117,6 +117,28 @@ export function MyPageScreen() {
     }
   }
 
+  function handleDeletePost(postId: string) {
+    if (!user) return;
+    Alert.alert(
+      "Delete post",
+      "Are you sure you want to delete this post? This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deletePost(user.uid, postId);
+            } catch (err: any) {
+              Alert.alert("Error", err.message);
+            }
+          },
+        },
+      ]
+    );
+  }
+
   if (loading) {
     return (
       <View className="flex-1 justify-center items-center bg-white">
@@ -183,6 +205,7 @@ export function MyPageScreen() {
                 postId: item.postId,
               })
             }
+            onDeletePress={() => handleDeletePost(item.postId)}
           />
         )}
         ListEmptyComponent={

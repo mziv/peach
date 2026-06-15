@@ -11,6 +11,7 @@ interface PostItemProps {
   isLiked: boolean;
   onLikePress: () => void;
   onCommentPress: () => void;
+  onDeletePress?: () => void;
 }
 
 export default function PostItem({
@@ -21,6 +22,7 @@ export default function PostItem({
   isLiked,
   onLikePress,
   onCommentPress,
+  onDeletePress,
 }: PostItemProps) {
   return (
     <View className="p-4 border-b border-gray-100">
@@ -48,6 +50,11 @@ export default function PostItem({
         <Text className="text-xs text-gray-400">
           {relativeTime(createdAt)}
         </Text>
+        {onDeletePress && (
+          <TouchableOpacity className="ml-auto" onPress={onDeletePress}>
+            <Ionicons name="trash-outline" size={18} color="gray" />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
