@@ -20,6 +20,7 @@ export default function Avatar({ displayName, size = 40, photoURL }: AvatarProps
       <Image
         source={{ uri: photoURL }}
         style={{ width: size, height: size, borderRadius: size / 2 }}
+        accessibilityLabel={`${displayName ?? "User"}'s profile photo`}
       />
     );
   }

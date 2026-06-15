@@ -1,4 +1,5 @@
 import React from "react";
+import { Image } from "react-native";
 import { render } from "@testing-library/react-native";
 import Avatar from "../../src/components/Avatar";
 import { avatarColor } from "../../src/utils/avatar";
@@ -35,7 +36,6 @@ describe("Avatar", () => {
     const { UNSAFE_getByType, queryByText } = render(
       <Avatar displayName="Maya Ziv" photoURL={photoURL} />
     );
-    const { Image } = require("react-native");
     const img = UNSAFE_getByType(Image);
     expect(img.props.source).toEqual({ uri: photoURL });
     // Initials must NOT render once a photo is present.
