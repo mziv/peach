@@ -79,10 +79,10 @@ Entered via the icon beside the gear in the My Page header.
 
 ## Tier 2 — Pre-MVP
 
-### Blue dots for new activity
+### Green dots for new activity
 
-On the homepage friend lines, show a blue dot when a friend has posted something
-the viewer hasn't seen.
+On the homepage friend lines, show a green dot (matching the reference app) when
+a friend has posted something the viewer hasn't seen.
 
 - **Data:** `users/{uid}/viewedFriends/{friendUid}` docs storing `lastViewedAt`
   (server-side). New service: `markFriendViewed`, `getViewedMap`.
