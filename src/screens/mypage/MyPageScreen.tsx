@@ -133,7 +133,7 @@ export function MyPageScreen() {
       {/* Custom header */}
       <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-100 bg-white">
         <View className="flex-row items-center flex-1">
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity onPress={() => navigation.popToTop()}>
             <Ionicons name="chevron-back" size={24} color="black" />
           </TouchableOpacity>
           <View className="flex-row items-center ml-2">
