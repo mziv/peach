@@ -5,7 +5,6 @@ jest.mock("firebase/firestore", () => ({
   doc: jest.fn(() => "mock-doc-ref"),
   collection: jest.fn(() => "mock-collection-ref"),
   getDoc: jest.fn(),
-  deleteDoc: jest.fn(),
   writeBatch: jest.fn(),
   increment: jest.fn((n) => `increment(${n})`),
   serverTimestamp: jest.fn(() => "mock-server-timestamp"),
