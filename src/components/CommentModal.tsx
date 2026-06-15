@@ -43,6 +43,9 @@ export default function CommentModal({
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Tracks comment deletes in flight so a double-tap can't fire deleteComment
+  // twice and over-decrement the post's commentCount.
+  const deletingIds = useRef<Set<string>>(new Set());
 
   // Keep the modal mounted while the close animation plays out.
   const [rendered, setRendered] = useState(visible);
@@ -135,10 +138,14 @@ export default function CommentModal({
           text: "Delete",
           style: "destructive",
           onPress: async () => {
+            if (deletingIds.current.has(commentId)) return;
+            deletingIds.current.add(commentId);
             try {
               await deleteComment(postOwnerUid, postId, commentId);
             } catch (err: any) {
               Alert.alert("Error", err.message);
+            } finally {
+              deletingIds.current.delete(commentId);
             }
           },
         },
