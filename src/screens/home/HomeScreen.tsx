@@ -180,7 +180,7 @@ export function HomeScreen() {
 							className="bg-green rounded-full py-3 mx-4 my-3 items-center"
 							onPress={() => navigation.navigate("SearchUsers")}
 						>
-							<Text className="text-white font-semibold text-sm">
+							<Text className="text-white font-semibold">
 								Add Friend...
 							</Text>
 						</TouchableOpacity>
