@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -28,7 +28,13 @@ export function SettingsScreen() {
   const [deleting, setDeleting] = useState(false);
   const [pwModalVisible, setPwModalVisible] = useState(false);
   const [password, setPassword] = useState("");
-  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoStatus, setPhotoStatus] = useState<
+    "idle" | "uploading" | "removing"
+  >("idle");
+  const photoBusy = photoStatus !== "idle";
+  // Guards the whole pick flow (permission + picker) against re-entry, since
+  // photoStatus only flips once an upload actually starts.
+  const pickerActiveRef = useRef(false);
 
   const trimmed = name.trim();
   const canSave = trimmed.length > 0 && trimmed !== user?.displayName && !saving;
@@ -92,48 +98,54 @@ export function SettingsScreen() {
   }
 
   async function pickAndUpload() {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert(
-        "Permission needed",
-        "Enable photo library access in Settings to choose a profile photo."
-      );
-      return;
-    }
-    // mediaTypes defaults to images; omitted to avoid version-specific
-    // MediaTypeOptions/MediaType API churn across expo-image-picker releases.
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-    if (result.canceled || !user) return;
-    setPhotoBusy(true);
+    if (pickerActiveRef.current) return;
+    pickerActiveRef.current = true;
     try {
-      await uploadProfilePhoto(user.uid, result.assets[0].uri);
-      await refreshUser();
-    } catch (err: any) {
-      Alert.alert("Error", err.message);
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert(
+          "Permission needed",
+          "Enable photo library access in Settings to choose a profile photo."
+        );
+        return;
+      }
+      // mediaTypes defaults to images; omitted to avoid version-specific
+      // MediaTypeOptions/MediaType API churn across expo-image-picker releases.
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (result.canceled || !user) return;
+      setPhotoStatus("uploading");
+      try {
+        await uploadProfilePhoto(user.uid, result.assets[0].uri);
+        await refreshUser();
+      } catch (err: any) {
+        Alert.alert("Error", err.message);
+      } finally {
+        setPhotoStatus("idle");
+      }
     } finally {
-      setPhotoBusy(false);
+      pickerActiveRef.current = false;
     }
   }
 
   async function handleRemovePhoto() {
     if (!user) return;
-    setPhotoBusy(true);
+    setPhotoStatus("removing");
     try {
       await removeProfilePhoto(user.uid);
       await refreshUser();
     } catch (err: any) {
       Alert.alert("Error", err.message);
     } finally {
-      setPhotoBusy(false);
+      setPhotoStatus("idle");
     }
   }
 
   function openPhotoOptions() {
-    if (photoBusy) return;
+    if (photoBusy || pickerActiveRef.current) return;
     const options = user?.photoURL
       ? [
           { text: "Change photo", onPress: pickAndUpload },
@@ -162,26 +174,35 @@ export function SettingsScreen() {
         <Text className="text-xs uppercase text-gray-400 px-4 pt-5 pb-2">
           Profile
         </Text>
-        <View className="items-center pb-4">
-          <TouchableOpacity onPress={openPhotoOptions} disabled={photoBusy}>
-            {user?.photoURL ? (
-              <Image
-                source={{ uri: user.photoURL }}
-                style={{ width: 80, height: 80, borderRadius: 40 }}
-              />
-            ) : (
-              <View
-                className="rounded-full items-center justify-center bg-gray-200"
-                style={{ width: 80, height: 80 }}
-              >
-                <Ionicons name="camera-outline" size={28} color="gray" />
-              </View>
-            )}
-          </TouchableOpacity>
+        <TouchableOpacity
+          className="items-center pb-4"
+          onPress={openPhotoOptions}
+          disabled={photoBusy}
+          accessibilityRole="button"
+          accessibilityLabel="Profile photo"
+          accessibilityHint="Opens options to change or remove your profile photo"
+        >
+          {user?.photoURL ? (
+            <Image
+              source={{ uri: user.photoURL }}
+              style={{ width: 80, height: 80, borderRadius: 40 }}
+            />
+          ) : (
+            <View
+              className="rounded-full items-center justify-center bg-gray-200"
+              style={{ width: 80, height: 80 }}
+            >
+              <Ionicons name="camera-outline" size={28} color="gray" />
+            </View>
+          )}
           <Text className="text-sm text-peach mt-2">
-            {photoBusy ? "Uploading…" : "Change photo"}
+            {photoStatus === "uploading"
+              ? "Uploading…"
+              : photoStatus === "removing"
+                ? "Removing…"
+                : "Change photo"}
           </Text>
-        </View>
+        </TouchableOpacity>
         <View className="px-4">
           <Text className="text-sm text-gray-500 mb-1">Display name</Text>
           <View className="flex-row items-center">
