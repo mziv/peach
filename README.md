@@ -12,10 +12,10 @@ for the detailed design and the decisions behind it.
 
 **Settings page** _(entry: gear icon in My Page header)_
 
-- [ ] Settings screen + navigation route from My Page
-- [ ] Edit display name (updates `displayName` on the user doc)
-- [ ] Delete account — hard delete (posts, friendships, notifications, user doc, Auth account) behind a confirmation dialog; handle Firebase's recent-login re-auth requirement
-- [ ] Sign out control lives in Settings
+- [x] Settings screen + navigation route from My Page
+- [x] Edit display name (updates `displayName` on the user doc)
+- [x] Delete account — hard delete (posts, friendships, notifications, user doc, Auth account) behind a confirmation dialog; handle Firebase's recent-login re-auth requirement
+- [x] Sign out control lives in Settings
 
 **Avatar with initials** _(enabler for the feeds below)_
 
