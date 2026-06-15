@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Ionicons } from "expo/node_modules/@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../contexts/AuthContext";
 import { logOut, reauthenticate, deleteAuthAccount } from "../../services/auth";
 import { updateDisplayName, deleteAccountData } from "../../services/users";
