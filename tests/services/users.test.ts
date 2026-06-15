@@ -23,11 +23,12 @@ describe("users service", () => {
   beforeEach(() => jest.clearAllMocks());
 
   describe("getUserByUid", () => {
-    it("returns user data when user exists", async () => {
+    it("returns user data including photoURL when user exists", async () => {
       const mockData = {
         uid: "uid-1",
         username: "alice",
         displayName: "Alice",
+        photoURL: "https://example.com/alice.jpg",
         createdAt: { toDate: () => new Date("2026-01-01") },
       };
       (getDoc as jest.Mock).mockResolvedValue({
@@ -41,6 +42,7 @@ describe("users service", () => {
         uid: "uid-1",
         username: "alice",
         displayName: "Alice",
+        photoURL: "https://example.com/alice.jpg",
         createdAt: new Date("2026-01-01"),
       });
     });
@@ -63,6 +65,7 @@ describe("users service", () => {
           uid: "uid-2",
           username: "bob",
           displayName: "Bob",
+          photoURL: "https://example.com/bob.jpg",
           createdAt: { toDate: () => new Date("2026-01-01") },
         }),
       };
@@ -72,6 +75,7 @@ describe("users service", () => {
 
       expect(users).toHaveLength(1);
       expect(users[0].username).toBe("bob");
+      expect(users[0].photoURL).toBe("https://example.com/bob.jpg");
     });
 
     it("returns empty array when no matches", async () => {

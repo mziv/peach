@@ -22,6 +22,7 @@ export async function getUserByUid(uid: string): Promise<User | null> {
     uid: data.uid,
     username: data.username,
     displayName: data.displayName,
+    photoURL: data.photoURL,
     createdAt: data.createdAt?.toDate() ?? new Date(),
   };
 }
@@ -44,6 +45,7 @@ export async function searchUsersByUsername(
       uid: data.uid,
       username: data.username,
       displayName: data.displayName,
+      photoURL: data.photoURL,
       createdAt: data.createdAt?.toDate() ?? new Date(),
     };
   });
