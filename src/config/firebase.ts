@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, initializeAuth, getReactNativePersistence } from "firebase/auth";
+import { getAuth, initializeAuth, type Auth, type Persistence } from "firebase/auth";
 import { initializeFirestore } from "firebase/firestore";
 import { Platform } from "react-native";
 
@@ -15,11 +15,17 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-let auth;
+let auth: Auth;
 if (Platform.OS === "web") {
   auth = getAuth(app);
 } else {
   const ReactNativeAsyncStorage = require("@react-native-async-storage/async-storage").default;
+  // getReactNativePersistence ships only in Firebase's React Native build,
+  // which Metro resolves at runtime. The published "firebase/auth" types target
+  // the web build and omit it, so we require it here to satisfy TypeScript.
+  const { getReactNativePersistence } = require("firebase/auth") as {
+    getReactNativePersistence: (storage: unknown) => Persistence;
+  };
   auth = initializeAuth(app, {
     persistence: getReactNativePersistence(ReactNativeAsyncStorage),
   });
