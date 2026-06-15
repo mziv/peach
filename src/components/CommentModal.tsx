@@ -11,6 +11,7 @@ import {
   Animated,
   Dimensions,
   StyleSheet,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -21,7 +22,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { useAuth } from "../contexts/AuthContext";
-import { addComment } from "../services/comments";
+import { addComment, deleteComment } from "../services/comments";
 import { Comment } from "../types";
 import Avatar from "./Avatar";
 
@@ -124,6 +125,27 @@ export default function CommentModal({
     }
   }
 
+  function handleDeleteComment(commentId: string) {
+    Alert.alert(
+      "Delete comment",
+      "Are you sure you want to delete this comment?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteComment(postOwnerUid, postId, commentId);
+            } catch (err: any) {
+              Alert.alert("Error", err.message);
+            }
+          },
+        },
+      ]
+    );
+  }
+
   return (
     <Modal
       visible={rendered}
@@ -186,6 +208,14 @@ export default function CommentModal({
                   </Text>
                   <Text className="text-sm text-gray-700">{item.text}</Text>
                 </View>
+                {user?.uid === item.authorUid && (
+                  <TouchableOpacity
+                    className="pl-2 self-start"
+                    onPress={() => handleDeleteComment(item.commentId)}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="gray" />
+                  </TouchableOpacity>
+                )}
               </View>
             )}
           />
