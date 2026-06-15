@@ -1,5 +1,13 @@
-import { doc, getDoc, getDocs, updateDoc, where, writeBatch, or } from "firebase/firestore";
-import { getUserByUid, searchUsersByUsername, updateDisplayName, deleteAccountData } from "../../src/services/users";
+import { doc, getDoc, getDocs, updateDoc, where, writeBatch, or, deleteField } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import {
+  getUserByUid,
+  searchUsersByUsername,
+  updateDisplayName,
+  deleteAccountData,
+  uploadProfilePhoto,
+  removeProfilePhoto,
+} from "../../src/services/users";
 
 jest.mock("firebase/firestore", () => ({
   doc: jest.fn(() => ({ id: "mock-doc-ref" })),
@@ -13,14 +21,28 @@ jest.mock("firebase/firestore", () => ({
   updateDoc: jest.fn(),
   or: jest.fn(),
   writeBatch: jest.fn(),
+  deleteField: jest.fn(() => "mock-delete-field"),
+}));
+
+jest.mock("firebase/storage", () => ({
+  ref: jest.fn(() => ({ fullPath: "mock-storage-ref" })),
+  uploadBytes: jest.fn(),
+  getDownloadURL: jest.fn(),
+  deleteObject: jest.fn(),
 }));
 
 jest.mock("../../src/config/firebase", () => ({
   db: {},
+  storage: {},
 }));
 
 describe("users service", () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (global as any).fetch = jest.fn().mockResolvedValue({
+      blob: jest.fn().mockResolvedValue("mock-blob"),
+    });
+  });
 
   describe("getUserByUid", () => {
     it("returns user data including photoURL when user exists", async () => {
@@ -140,6 +162,7 @@ describe("users service", () => {
       // 1 comment + 1 like + 1 post + 1 meta + 1 friendship + 1 user = 6 deletes
       expect(batch.delete).toHaveBeenCalledTimes(6);
       expect(batch.commit).toHaveBeenCalledTimes(1);
+      expect(deleteObject).toHaveBeenCalled();
     });
 
     it("queries friendships where the user is requester or receiver", async () => {
@@ -151,6 +174,58 @@ describe("users service", () => {
 
       expect(where).toHaveBeenCalledWith("requesterId", "==", "uid-1");
       expect(where).toHaveBeenCalledWith("receiverId", "==", "uid-1");
+    });
+
+    it("does not throw if the avatar object is missing", async () => {
+      const batch = { delete: jest.fn(), commit: jest.fn().mockResolvedValue(undefined) };
+      (writeBatch as jest.Mock).mockReturnValue(batch);
+      (getDocs as jest.Mock).mockResolvedValue({ docs: [] });
+      (deleteObject as jest.Mock).mockRejectedValue({ code: "storage/object-not-found" });
+
+      await expect(deleteAccountData("uid-1")).resolves.toBeUndefined();
+    });
+  });
+
+  describe("uploadProfilePhoto", () => {
+    it("uploads the blob to avatars/{uid}, sets photoURL, and returns the URL", async () => {
+      (getDownloadURL as jest.Mock).mockResolvedValue("https://cdn/avatar.jpg");
+      (uploadBytes as jest.Mock).mockResolvedValue(undefined);
+      (updateDoc as jest.Mock).mockResolvedValue(undefined);
+
+      const url = await uploadProfilePhoto("uid-1", "file:///tmp/pic.jpg");
+
+      expect(global.fetch).toHaveBeenCalledWith("file:///tmp/pic.jpg");
+      expect(ref).toHaveBeenCalledWith(expect.anything(), "avatars/uid-1");
+      expect(uploadBytes).toHaveBeenCalledWith(expect.anything(), "mock-blob");
+      expect(updateDoc).toHaveBeenCalledWith(expect.anything(), {
+        photoURL: "https://cdn/avatar.jpg",
+      });
+      expect(url).toBe("https://cdn/avatar.jpg");
+    });
+  });
+
+  describe("removeProfilePhoto", () => {
+    it("deletes the storage object and clears photoURL", async () => {
+      (deleteObject as jest.Mock).mockResolvedValue(undefined);
+      (updateDoc as jest.Mock).mockResolvedValue(undefined);
+
+      await removeProfilePhoto("uid-1");
+
+      expect(ref).toHaveBeenCalledWith(expect.anything(), "avatars/uid-1");
+      expect(deleteObject).toHaveBeenCalled();
+      expect(updateDoc).toHaveBeenCalledWith(expect.anything(), {
+        photoURL: "mock-delete-field",
+      });
+    });
+
+    it("clears photoURL even when the object does not exist", async () => {
+      (deleteObject as jest.Mock).mockRejectedValue({ code: "storage/object-not-found" });
+      (updateDoc as jest.Mock).mockResolvedValue(undefined);
+
+      await expect(removeProfilePhoto("uid-1")).resolves.toBeUndefined();
+      expect(updateDoc).toHaveBeenCalledWith(expect.anything(), {
+        photoURL: "mock-delete-field",
+      });
     });
   });
 });

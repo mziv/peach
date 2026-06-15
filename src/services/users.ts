@@ -10,8 +10,10 @@ import {
   updateDoc,
   writeBatch,
   or,
+  deleteField,
 } from "firebase/firestore";
-import { db } from "../config/firebase";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { db, storage } from "../config/firebase";
 import { User } from "../types";
 
 export async function getUserByUid(uid: string): Promise<User | null> {
@@ -58,6 +60,29 @@ export async function updateDisplayName(
   await updateDoc(doc(db, "users", uid), { displayName });
 }
 
+export async function uploadProfilePhoto(
+  uid: string,
+  localUri: string
+): Promise<string> {
+  const response = await fetch(localUri);
+  const blob = await response.blob();
+  const storageRef = ref(storage, `avatars/${uid}`);
+  await uploadBytes(storageRef, blob);
+  const photoURL = await getDownloadURL(storageRef);
+  await updateDoc(doc(db, "users", uid), { photoURL });
+  return photoURL;
+}
+
+export async function removeProfilePhoto(uid: string): Promise<void> {
+  try {
+    await deleteObject(ref(storage, `avatars/${uid}`));
+  } catch (err: any) {
+    // A user may have set no photo yet; only re-throw unexpected errors.
+    if (err?.code !== "storage/object-not-found") throw err;
+  }
+  await updateDoc(doc(db, "users", uid), { photoURL: deleteField() });
+}
+
 export async function deleteAccountData(uid: string): Promise<void> {
   const batch = writeBatch(db);
 
@@ -91,6 +116,13 @@ export async function deleteAccountData(uid: string): Promise<void> {
 
   // Finally, the user document itself.
   batch.delete(doc(db, "users", uid));
+
+  // Remove the profile photo from Storage (not part of the Firestore batch).
+  try {
+    await deleteObject(ref(storage, `avatars/${uid}`));
+  } catch (err: any) {
+    if (err?.code !== "storage/object-not-found") throw err;
+  }
 
   await batch.commit();
 }
