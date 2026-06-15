@@ -155,7 +155,7 @@ export function MyPageScreen() {
             <Ionicons name="chevron-back" size={24} color="black" />
           </TouchableOpacity>
           <View className="flex-row items-center ml-2">
-            <Avatar size={32} />
+            <Avatar size={32} displayName={user?.displayName} />
             <View className="ml-2">
               <Text className="text-base font-semibold">
                 {user?.displayName}

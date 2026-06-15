@@ -24,7 +24,7 @@ export default function UserPreview({
       className="flex-row items-center p-4 border-b border-gray-100"
       onPress={onPress}
     >
-      <Avatar size={40} />
+      <Avatar size={40} displayName={displayName} />
       <View className="flex-1 ml-3">
         <Text className="text-base font-semibold">{displayName}</Text>
         <Text className="text-sm text-gray-500" numberOfLines={1}>

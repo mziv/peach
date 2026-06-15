@@ -177,7 +177,7 @@ export function FriendRequestsScreen() {
 				renderItem={({ item, section }) => (
 					<View className="flex-row justify-between items-center px-4 py-3">
 						<View className="flex-row items-center flex-1 mr-3">
-							<Avatar size={36} />
+							<Avatar size={36} displayName={item.otherDisplayName} />
 							<View className="ml-3">
 								<Text className="text-sm">
 									{item.otherDisplayName}{" "}

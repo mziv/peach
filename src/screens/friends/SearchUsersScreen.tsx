@@ -102,7 +102,7 @@ export function SearchUsersScreen() {
         renderItem={({ item }) => (
           <View className="flex-row justify-between items-center px-4 py-3">
             <View className="flex-row items-center flex-1 mr-3">
-              <Avatar size={40} />
+              <Avatar size={40} displayName={item.displayName} />
               <View className="ml-3">
                 <Text className="text-base font-medium">{item.displayName}</Text>
                 <Text className="text-sm text-gray-400">@{item.username}</Text>
