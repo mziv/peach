@@ -5,6 +5,7 @@ import {
 	TouchableOpacity,
 	ActivityIndicator,
 	SectionList,
+	RefreshControl,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -40,10 +41,13 @@ export function FriendRequestsScreen() {
 	const [outgoing, setOutgoing] = useState<RequestWithName[]>([]);
 	const [friends, setFriends] = useState<RequestWithName[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 
-	async function loadAll() {
+	// `silent` skips the full-screen loading spinner so a pull-to-refresh keeps
+	// the existing list visible while the native refresh indicator shows.
+	async function loadAll(opts?: { silent?: boolean }) {
 		if (!user) return;
-		setLoading(true);
+		if (!opts?.silent) setLoading(true);
 		const [inc, out, accepted] = await Promise.all([
 			getPendingRequests(user.uid),
 			getOutgoingRequests(user.uid),
@@ -88,12 +92,21 @@ export function FriendRequestsScreen() {
 		setIncoming(incomingWithNames);
 		setOutgoing(outgoingWithNames);
 		setFriends(friendsWithNames);
-		setLoading(false);
+		if (!opts?.silent) setLoading(false);
 	}
 
 	useEffect(() => {
 		loadAll();
 	}, [user]);
+
+	async function onRefresh() {
+		setRefreshing(true);
+		try {
+			await loadAll({ silent: true });
+		} finally {
+			setRefreshing(false);
+		}
+	}
 
 	async function handleAccept(friendshipId: string) {
 		try {
@@ -162,6 +175,9 @@ export function FriendRequestsScreen() {
 			<SectionList
 				sections={sections}
 				keyExtractor={(item) => item.friendshipId}
+				refreshControl={
+					<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+				}
 				renderSectionHeader={({ section }) => (
 					<Text className="text-xs font-semibold text-gray-400 uppercase px-4 pt-5 pb-2">
 						{section.title}

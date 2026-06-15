@@ -5,6 +5,7 @@ import {
 	FlatList,
 	TouchableOpacity,
 	ActivityIndicator,
+	RefreshControl,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -41,98 +42,94 @@ export function HomeScreen() {
 		lastPostAt: null,
 	});
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	// Friends opened this session, with the local time we opened them. Used to
 	// clear the dot instantly on tap and to keep it cleared while the
 	// server-side `lastViewedAt` write propagates — without permanently
 	// suppressing dots if the friend posts again later.
 	const viewedThisSession = useRef<Map<string, Date>>(new Map());
 
+	const loadData = useCallback(async () => {
+		if (!user) return;
+
+		// Fetch self meta
+		const selfMetaSnap = await getDoc(
+			doc(db, "users", user.uid, "meta", "meta"),
+		);
+		const selfMetaData = selfMetaSnap.exists() ? selfMetaSnap.data() : null;
+
+		setSelfMeta({
+			lastPostText: selfMetaData?.lastPostText ?? "",
+			lastPostAt: selfMetaData?.lastPostAt?.toDate() ?? null,
+		});
+
+		// Fetch friendships and friend meta
+		const friendships = await getFriendships(user.uid);
+		const viewedMap = await getViewedMap(user.uid);
+
+		const friendUids = friendships.map((f) =>
+			f.requesterId === user.uid ? f.receiverId : f.requesterId,
+		);
+
+		const friendsWithMeta: FriendWithMeta[] = [];
+		for (const friendUid of friendUids) {
+			const userSnap = await getDoc(doc(db, "users", friendUid));
+			const metaSnap = await getDoc(
+				doc(db, "users", friendUid, "meta", "meta"),
+			);
+
+			if (userSnap.exists()) {
+				const userData = userSnap.data();
+				const metaData = metaSnap.exists() ? metaSnap.data() : null;
+				const friendLastPostAt = metaData?.lastPostAt?.toDate() ?? null;
+				// Use whichever view is more recent: the server-recorded
+				// `lastViewedAt` or an optimistic local stamp from tapping
+				// the friend this session (covers the propagation gap).
+				let effectiveViewed = viewedMap[friendUid];
+				const localViewed = viewedThisSession.current.get(friendUid);
+				if (
+					localViewed &&
+					(!(effectiveViewed instanceof Date) ||
+						localViewed > effectiveViewed)
+				) {
+					effectiveViewed = localViewed;
+				}
+				friendsWithMeta.push({
+					uid: friendUid,
+					displayName: userData.displayName,
+					username: userData.username,
+					lastPostText: metaData?.lastPostText ?? "",
+					lastPostAt: friendLastPostAt,
+					hasNewActivity: hasNewActivity(friendLastPostAt, effectiveViewed),
+				});
+			}
+		}
+
+		friendsWithMeta.sort((a, b) => {
+			if (!a.lastPostAt && !b.lastPostAt) return 0;
+			if (!a.lastPostAt) return 1;
+			if (!b.lastPostAt) return -1;
+			return b.lastPostAt.getTime() - a.lastPostAt.getTime();
+		});
+
+		setFriends(friendsWithMeta);
+		setLoading(false);
+	}, [user]);
+
 	useFocusEffect(
 		useCallback(() => {
-			if (!user) return;
-
-			let cancelled = false;
-
-			async function loadData() {
-				// Fetch self meta
-				const selfMetaSnap = await getDoc(
-					doc(db, "users", user!.uid, "meta", "meta"),
-				);
-				const selfMetaData = selfMetaSnap.exists() ? selfMetaSnap.data() : null;
-
-				if (!cancelled) {
-					setSelfMeta({
-						lastPostText: selfMetaData?.lastPostText ?? "",
-						lastPostAt: selfMetaData?.lastPostAt?.toDate() ?? null,
-					});
-				}
-
-				// Fetch friendships and friend meta
-				const friendships = await getFriendships(user!.uid);
-				const viewedMap = await getViewedMap(user!.uid);
-
-				const friendUids = friendships.map((f) =>
-					f.requesterId === user!.uid ? f.receiverId : f.requesterId,
-				);
-
-				const friendsWithMeta: FriendWithMeta[] = [];
-				for (const friendUid of friendUids) {
-					const userSnap = await getDoc(doc(db, "users", friendUid));
-					const metaSnap = await getDoc(
-						doc(db, "users", friendUid, "meta", "meta"),
-					);
-
-					if (userSnap.exists()) {
-						const userData = userSnap.data();
-						const metaData = metaSnap.exists() ? metaSnap.data() : null;
-						const friendLastPostAt =
-							metaData?.lastPostAt?.toDate() ?? null;
-						// Use whichever view is more recent: the server-recorded
-						// `lastViewedAt` or an optimistic local stamp from tapping
-						// the friend this session (covers the propagation gap).
-						let effectiveViewed = viewedMap[friendUid];
-						const localViewed = viewedThisSession.current.get(friendUid);
-						if (
-							localViewed &&
-							(!(effectiveViewed instanceof Date) ||
-								localViewed > effectiveViewed)
-						) {
-							effectiveViewed = localViewed;
-						}
-						friendsWithMeta.push({
-							uid: friendUid,
-							displayName: userData.displayName,
-							username: userData.username,
-							lastPostText: metaData?.lastPostText ?? "",
-							lastPostAt: friendLastPostAt,
-							hasNewActivity: hasNewActivity(
-								friendLastPostAt,
-								effectiveViewed
-							),
-						});
-					}
-				}
-
-				friendsWithMeta.sort((a, b) => {
-					if (!a.lastPostAt && !b.lastPostAt) return 0;
-					if (!a.lastPostAt) return 1;
-					if (!b.lastPostAt) return -1;
-					return b.lastPostAt.getTime() - a.lastPostAt.getTime();
-				});
-
-				if (!cancelled) {
-					setFriends(friendsWithMeta);
-					setLoading(false);
-				}
-			}
-
 			loadData();
-
-			return () => {
-				cancelled = true;
-			};
-		}, [user]),
+		}, [loadData]),
 	);
+
+	const onRefresh = useCallback(async () => {
+		setRefreshing(true);
+		try {
+			await loadData();
+		} finally {
+			setRefreshing(false);
+		}
+	}, [loadData]);
 
 	function handleFriendPress(item: FriendWithMeta) {
 		// Opening the friend's page marks it viewed: record the local time and
@@ -164,6 +161,9 @@ export function HomeScreen() {
 			<FlatList
 				data={friends}
 				keyExtractor={(item) => item.uid}
+				refreshControl={
+					<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+				}
 				ListHeaderComponent={
 					<>
 						{/* Self-preview row */}
