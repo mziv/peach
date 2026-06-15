@@ -17,6 +17,7 @@ import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "../../config/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { createPost, deletePost } from "../../services/posts";
+import { confirmDestructive, notify } from "../../utils/dialog";
 import { likePost, unlikePost, hasLiked } from "../../services/likes";
 import { HomeStackParamList } from "../../navigation/HomeStack";
 import { Post } from "../../types";
@@ -117,26 +118,18 @@ export function MyPageScreen() {
     }
   }
 
-  function handleDeletePost(postId: string) {
+  async function handleDeletePost(postId: string) {
     if (!user) return;
-    Alert.alert(
+    const confirmed = await confirmDestructive(
       "Delete post",
-      "Are you sure you want to delete this post? This can't be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deletePost(user.uid, postId);
-            } catch (err: any) {
-              Alert.alert("Error", err.message);
-            }
-          },
-        },
-      ]
+      "Are you sure you want to delete this post? This can't be undone."
     );
+    if (!confirmed) return;
+    try {
+      await deletePost(user.uid, postId);
+    } catch (err: any) {
+      notify("Error", err.message);
+    }
   }
 
   if (loading) {

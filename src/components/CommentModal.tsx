@@ -11,7 +11,6 @@ import {
   Animated,
   Dimensions,
   StyleSheet,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -23,6 +22,7 @@ import {
 import { db } from "../config/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { addComment, deleteComment } from "../services/comments";
+import { confirmDestructive, notify } from "../utils/dialog";
 import { Comment } from "../types";
 import Avatar from "./Avatar";
 
@@ -128,29 +128,21 @@ export default function CommentModal({
     }
   }
 
-  function handleDeleteComment(commentId: string) {
-    Alert.alert(
+  async function handleDeleteComment(commentId: string) {
+    if (deletingIds.current.has(commentId)) return;
+    const confirmed = await confirmDestructive(
       "Delete comment",
-      "Are you sure you want to delete this comment?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            if (deletingIds.current.has(commentId)) return;
-            deletingIds.current.add(commentId);
-            try {
-              await deleteComment(postOwnerUid, postId, commentId);
-            } catch (err: any) {
-              Alert.alert("Error", err.message);
-            } finally {
-              deletingIds.current.delete(commentId);
-            }
-          },
-        },
-      ]
+      "Are you sure you want to delete this comment?"
     );
+    if (!confirmed) return;
+    deletingIds.current.add(commentId);
+    try {
+      await deleteComment(postOwnerUid, postId, commentId);
+    } catch (err: any) {
+      notify("Error", err.message);
+    } finally {
+      deletingIds.current.delete(commentId);
+    }
   }
 
   return (
