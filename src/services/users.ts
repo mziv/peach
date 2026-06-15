@@ -7,6 +7,7 @@ import {
   where,
   orderBy,
   limit,
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { User } from "../types";
@@ -44,4 +45,11 @@ export async function searchUsersByUsername(
       createdAt: data.createdAt?.toDate() ?? new Date(),
     };
   });
+}
+
+export async function updateDisplayName(
+  uid: string,
+  displayName: string
+): Promise<void> {
+  await updateDoc(doc(db, "users", uid), { displayName });
 }

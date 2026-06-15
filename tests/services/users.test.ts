@@ -1,8 +1,8 @@
-import { getDoc, getDocs } from "firebase/firestore";
-import { getUserByUid, searchUsersByUsername } from "../../src/services/users";
+import { getDoc, getDocs, updateDoc } from "firebase/firestore";
+import { getUserByUid, searchUsersByUsername, updateDisplayName } from "../../src/services/users";
 
 jest.mock("firebase/firestore", () => ({
-  doc: jest.fn(),
+  doc: jest.fn(() => ({ id: "mock-doc-ref" })),
   getDoc: jest.fn(),
   getDocs: jest.fn(),
   query: jest.fn(),
@@ -10,6 +10,7 @@ jest.mock("firebase/firestore", () => ({
   where: jest.fn(),
   orderBy: jest.fn(),
   limit: jest.fn(),
+  updateDoc: jest.fn(),
 }));
 
 jest.mock("../../src/config/firebase", () => ({
@@ -77,6 +78,18 @@ describe("users service", () => {
       const users = await searchUsersByUsername("nobody");
 
       expect(users).toEqual([]);
+    });
+  });
+
+  describe("updateDisplayName", () => {
+    it("writes the new display name to the user doc", async () => {
+      (updateDoc as jest.Mock).mockResolvedValue(undefined);
+
+      await updateDisplayName("uid-1", "New Name");
+
+      expect(updateDoc).toHaveBeenCalledWith(expect.anything(), {
+        displayName: "New Name",
+      });
     });
   });
 });
