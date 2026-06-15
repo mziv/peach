@@ -1,8 +1,9 @@
 import {
   collection,
   doc,
-  addDoc,
+  getDoc,
   getDocs,
+  setDoc,
   updateDoc,
   deleteDoc,
   query,
@@ -13,6 +14,16 @@ import {
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { Friendship } from "../types";
+
+/**
+ * Deterministic friendship document id: the two uids sorted and joined. Because
+ * the id is a pure function of the pair, the security rules can check whether
+ * two users are friends with a single get() (rules cannot run queries). The
+ * client and firestore.rules must compute this identically.
+ */
+export function pairId(uid1: string, uid2: string): string {
+  return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
+}
 
 function docToFriendship(d: any): Friendship {
   const data = d.data();
@@ -29,7 +40,7 @@ export async function sendFriendRequest(
   requesterId: string,
   receiverId: string
 ): Promise<void> {
-  await addDoc(collection(db, "friendships"), {
+  await setDoc(doc(db, "friendships", pairId(requesterId, receiverId)), {
     requesterId,
     receiverId,
     status: "pending",
@@ -94,14 +105,7 @@ export async function getFriendshipBetween(
   uid1: string,
   uid2: string
 ): Promise<Friendship | null> {
-  const q = query(
-    collection(db, "friendships"),
-    or(
-      and(where("requesterId", "==", uid1), where("receiverId", "==", uid2)),
-      and(where("requesterId", "==", uid2), where("receiverId", "==", uid1))
-    )
-  );
-  const snap = await getDocs(q);
-  if (snap.empty) return null;
-  return docToFriendship(snap.docs[0]);
+  const snap = await getDoc(doc(db, "friendships", pairId(uid1, uid2)));
+  if (!snap.exists()) return null;
+  return docToFriendship(snap);
 }
