@@ -14,7 +14,7 @@ import { notify } from "../../utils/dialog";
 import { searchUsersByUsername } from "../../services/users";
 import {
   sendFriendRequest,
-  getFriendshipBetween,
+  getFriendshipStatus,
 } from "../../services/friendships";
 import { User } from "../../types";
 import Avatar from "../../components/Avatar";
@@ -35,22 +35,27 @@ export function SearchUsersScreen() {
 
   async function handleSearch() {
     if (!searchTerm.trim() || !user) return;
-    const users = await searchUsersByUsername(searchTerm.trim());
+    try {
+      const users = await searchUsersByUsername(searchTerm.trim());
 
-    const resultsWithStatus: SearchResult[] = await Promise.all(
-      users
-        .filter((u) => u.uid !== user.uid)
-        .map(async (u) => {
-          const friendship = await getFriendshipBetween(user.uid, u.uid);
-          return {
+      // getFriendshipStatus never throws, so a single failed friendship probe
+      // can't reject this Promise.all and wipe every result.
+      const resultsWithStatus: SearchResult[] = await Promise.all(
+        users
+          .filter((u) => u.uid !== user.uid)
+          .map(async (u) => ({
             ...u,
-            friendshipStatus: friendship ? friendship.status : "none",
-          };
-        })
-    );
+            friendshipStatus: await getFriendshipStatus(user.uid, u.uid),
+          }))
+      );
 
-    setResults(resultsWithStatus);
-    setSearched(true);
+      setResults(resultsWithStatus);
+    } catch (err: any) {
+      notify("Error", err?.message ?? "Something went wrong while searching.");
+      setResults([]);
+    } finally {
+      setSearched(true);
+    }
   }
 
   async function handleSendRequest(receiverUid: string) {
