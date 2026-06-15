@@ -173,6 +173,7 @@ export function HomeScreen() {
 						<UserPreview
 							displayName={user?.displayName ?? ""}
 							username={user?.username ?? ""}
+							photoURL={user?.photoURL}
 							previewText={selfMeta.lastPostText || "No posts yet"}
 							timestamp={selfMeta.lastPostAt}
 							onPress={() => navigation.navigate("MyPage")}
