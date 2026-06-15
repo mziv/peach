@@ -144,6 +144,9 @@ export default function CommentModal({
             ...StyleSheet.absoluteFillObject,
             backgroundColor: "rgba(0, 0, 0, 0.4)",
             opacity: backdropOpacity,
+            // Mobile Safari won't promote this full-screen fade to its own GPU
+            // layer on its own, so it repaints every frame. Hint it to. (web only)
+            ...(Platform.OS === "web" ? ({ willChange: "opacity" } as any) : null),
           }}
         >
           <TouchableOpacity
@@ -156,6 +159,9 @@ export default function CommentModal({
           style={{
             height: "60%",
             transform: [{ translateY: panelTranslateY }],
+            // Same layer-promotion hint for the sliding panel so Safari
+            // composites the transform instead of repainting the subtree. (web only)
+            ...(Platform.OS === "web" ? ({ willChange: "transform" } as any) : null),
           }}
         >
         <KeyboardAvoidingView

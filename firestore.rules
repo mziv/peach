@@ -1,53 +1,86 @@
 rules_version = '2';
 
-// NOTE: This repo has no firebase.json / deploy config. These rules are the
-// intended security model and must be applied manually in the Firebase console.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // A signed-in user can read any profile and write only their own.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // User profile docs: any signed-in user can read (search, friend pages);
+    // only the owner can write their own profile.
     match /users/{uid} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.uid == uid;
+      allow read: if isSignedIn();
+      allow write: if isOwner(uid);
 
-      // Posts and their subcollections.
+      // Profile meta (last post text/time): readable by any signed-in user,
+      // writable only by the owner.
+      match /meta/{metaId} {
+        allow read: if isSignedIn();
+        allow write: if isOwner(uid);
+      }
+
+      // Posts: readable by any signed-in user. The owner can create, edit, and
+      // delete their own posts. Any signed-in user may update ONLY the
+      // likeCount / commentCount counters, because liking or commenting on a
+      // friend's post bumps those counters on the post doc itself
+      // (see services/likes.ts and services/comments.ts).
       match /posts/{postId} {
-        allow read: if request.auth != null;
-        // Owner manages their own posts.
-        allow create, update, delete: if request.auth.uid == uid;
-        // Comment/like counters are bumped by actors, so allow signed-in updates.
-        allow update: if request.auth != null;
+        allow read: if isSignedIn();
+        allow create, delete: if isOwner(uid);
+        allow update: if isOwner(uid) ||
+          (isSignedIn() &&
+           request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['likeCount', 'commentCount']));
 
+        // Comments: any signed-in user may read and add comments.
         match /comments/{commentId} {
-          allow read: if request.auth != null;
-          allow create: if request.auth.uid == request.resource.data.authorUid;
+          allow read: if isSignedIn();
+          allow write: if isSignedIn();
         }
 
+        // Likes: readable by any signed-in user; each user manages only their
+        // own like doc (doc id == liker uid).
         match /likes/{likerUid} {
-          allow read: if request.auth != null;
-          allow create, delete: if request.auth.uid == likerUid;
+          allow read: if isSignedIn();
+          allow write: if isOwner(likerUid);
         }
       }
 
-      // Activity feed: only the owner reads their notifications. An actor may
-      // create one on the owner's post, and remove their own like notification.
-      match /notifications/{notifId} {
-        allow read: if request.auth.uid == uid;
-        allow create: if request.auth != null
-          && request.resource.data.actorUid == request.auth.uid;
-        allow delete: if request.auth.uid == resource.data.actorUid;
+      // Viewed-friends read state: private to the owner. The doc id is the
+      // friend's uid; only the viewer can read or write their own history.
+      match /viewedFriends/{friendUid} {
+        allow read, write: if isOwner(uid);
       }
 
-      match /meta/{docId} {
-        allow read: if request.auth != null;
-        allow write: if request.auth.uid == uid;
+      // Activity feed: only the owner reads their own notifications. An actor
+      // (commenter/liker) creates one in the post owner's subcollection, and
+      // removes their own like notification on unlike (see services/likes.ts
+      // and services/comments.ts).
+      match /notifications/{notifId} {
+        allow read: if isOwner(uid);
+        allow create: if isSignedIn() &&
+          request.resource.data.actorUid == request.auth.uid;
+        allow delete: if isSignedIn() &&
+          request.auth.uid == resource.data.actorUid;
       }
     }
 
-    // Friendships are top-level docs between two users.
-    match /friendships/{id} {
-      allow read: if request.auth != null;
-      allow create, update, delete: if request.auth != null;
+    // Friendships: a signed-in user may read/write a friendship they are part
+    // of. Creating a request: the requester must be the signed-in user.
+    match /friendships/{friendshipId} {
+      allow read: if isSignedIn() &&
+        (request.auth.uid == resource.data.requesterId ||
+         request.auth.uid == resource.data.receiverId);
+      allow create: if isSignedIn() &&
+        request.auth.uid == request.resource.data.requesterId;
+      allow update, delete: if isSignedIn() &&
+        (request.auth.uid == resource.data.requesterId ||
+         request.auth.uid == resource.data.receiverId);
     }
   }
 }

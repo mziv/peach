@@ -12,10 +12,10 @@ for the detailed design and the decisions behind it.
 
 **Settings page** _(entry: gear icon in My Page header)_
 
-- [ ] Settings screen + navigation route from My Page
-- [ ] Edit display name (updates `displayName` on the user doc)
-- [ ] Delete account — hard delete (posts, friendships, notifications, user doc, Auth account) behind a confirmation dialog; handle Firebase's recent-login re-auth requirement
-- [ ] Sign out control lives in Settings
+- [x] Settings screen + navigation route from My Page
+- [x] Edit display name (updates `displayName` on the user doc)
+- [x] Delete account — hard delete (posts, friendships, notifications, user doc, Auth account) behind a confirmation dialog; handle Firebase's recent-login re-auth requirement
+- [x] Sign out control lives in Settings
 
 **Avatar with initials** _(enabler for the feeds below)_
 
@@ -31,16 +31,16 @@ for the detailed design and the decisions behind it.
 - [x] `activityLastReadAt` on the user doc; unread dot on the header icon; opening Activity marks read
 - [x] Firestore security rules for `notifications`
 
-> Firestore rules live in `firestore.rules`. There is no `firebase.json` in this repo, so apply them manually in the Firebase console.
+> The `notifications` rules live in `firestore.rules` (wired for deploy via `firebase.json`).
 
 ### Tier 2 — Pre-MVP
 
 **Green dots for new activity** _(on the homepage friend lines, matching the reference app)_
 
-- [ ] `users/{uid}/viewedFriends/{friendUid}` docs storing `lastViewedAt`
-- [ ] Homepage shows a green dot when a friend's `meta.lastPostAt` is newer than my `lastViewedAt` (or never viewed)
-- [ ] Opening a friend's page stamps `lastViewedAt = now`, clearing the dot
-- [ ] Firestore security rules for `viewedFriends`
+- [x] `users/{uid}/viewedFriends/{friendUid}` docs storing `lastViewedAt`
+- [x] Homepage shows a green dot when a friend's `meta.lastPostAt` is newer than my `lastViewedAt` (or never viewed)
+- [x] Opening a friend's page stamps `lastViewedAt = now`, clearing the dot
+- [x] Firestore security rules for `viewedFriends`
 
 ### Tier 3 — P1 (post-MVP)
 

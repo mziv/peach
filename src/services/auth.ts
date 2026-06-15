@@ -3,6 +3,9 @@ import {
   signInWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  deleteUser,
 } from "firebase/auth";
 import {
   doc,
@@ -62,4 +65,21 @@ export async function resetPassword(email: string): Promise<void> {
     }
     throw err; // Re-throw network errors etc.
   }
+}
+
+export async function reauthenticate(password: string): Promise<void> {
+  const current = auth.currentUser;
+  if (!current || !current.email) {
+    throw new Error("No authenticated user to re-authenticate");
+  }
+  const credential = EmailAuthProvider.credential(current.email, password);
+  await reauthenticateWithCredential(current, credential);
+}
+
+export async function deleteAuthAccount(): Promise<void> {
+  const current = auth.currentUser;
+  if (!current) {
+    throw new Error("No authenticated user to delete");
+  }
+  await deleteUser(current);
 }

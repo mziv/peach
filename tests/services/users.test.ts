@@ -1,8 +1,8 @@
-import { getDoc, getDocs } from "firebase/firestore";
-import { getUserByUid, searchUsersByUsername } from "../../src/services/users";
+import { doc, getDoc, getDocs, updateDoc, where, writeBatch, or } from "firebase/firestore";
+import { getUserByUid, searchUsersByUsername, updateDisplayName, deleteAccountData } from "../../src/services/users";
 
 jest.mock("firebase/firestore", () => ({
-  doc: jest.fn(),
+  doc: jest.fn(() => ({ id: "mock-doc-ref" })),
   getDoc: jest.fn(),
   getDocs: jest.fn(),
   query: jest.fn(),
@@ -10,6 +10,9 @@ jest.mock("firebase/firestore", () => ({
   where: jest.fn(),
   orderBy: jest.fn(),
   limit: jest.fn(),
+  updateDoc: jest.fn(),
+  or: jest.fn(),
+  writeBatch: jest.fn(),
 }));
 
 jest.mock("../../src/config/firebase", () => ({
@@ -77,6 +80,51 @@ describe("users service", () => {
       const users = await searchUsersByUsername("nobody");
 
       expect(users).toEqual([]);
+    });
+  });
+
+  describe("updateDisplayName", () => {
+    it("writes the new display name to the user doc", async () => {
+      (updateDoc as jest.Mock).mockResolvedValue(undefined);
+
+      await updateDisplayName("uid-1", "New Name");
+
+      expect(doc).toHaveBeenCalledWith(expect.anything(), "users", "uid-1");
+      expect(updateDoc).toHaveBeenCalledWith(expect.anything(), {
+        displayName: "New Name",
+      });
+    });
+  });
+
+  describe("deleteAccountData", () => {
+    it("batch-deletes posts (+ comments/likes), meta, friendships, and the user doc", async () => {
+      const batch = { delete: jest.fn(), commit: jest.fn().mockResolvedValue(undefined) };
+      (writeBatch as jest.Mock).mockReturnValue(batch);
+
+      // getDocs is called in this order:
+      // 1) posts, 2) comments(post1), 3) likes(post1), 4) friendships
+      (getDocs as jest.Mock)
+        .mockResolvedValueOnce({ docs: [{ id: "post1", ref: "postRef" }] }) // posts
+        .mockResolvedValueOnce({ docs: [{ ref: "commentRef" }] })           // comments
+        .mockResolvedValueOnce({ docs: [{ ref: "likeRef" }] })              // likes
+        .mockResolvedValueOnce({ docs: [{ ref: "friendshipRef" }] });       // friendships
+
+      await deleteAccountData("uid-1");
+
+      // 1 comment + 1 like + 1 post + 1 meta + 1 friendship + 1 user = 6 deletes
+      expect(batch.delete).toHaveBeenCalledTimes(6);
+      expect(batch.commit).toHaveBeenCalledTimes(1);
+    });
+
+    it("queries friendships where the user is requester or receiver", async () => {
+      const batch = { delete: jest.fn(), commit: jest.fn().mockResolvedValue(undefined) };
+      (writeBatch as jest.Mock).mockReturnValue(batch);
+      (getDocs as jest.Mock).mockResolvedValue({ docs: [] });
+
+      await deleteAccountData("uid-1");
+
+      expect(where).toHaveBeenCalledWith("requesterId", "==", "uid-1");
+      expect(where).toHaveBeenCalledWith("receiverId", "==", "uid-1");
     });
   });
 });
