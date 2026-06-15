@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
 	View,
 	Text,
@@ -12,6 +12,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../config/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { getFriendships } from "../../services/friendships";
+import { getViewedMap, hasNewActivity } from "../../services/viewedFriends";
 import { HomeStackParamList } from "../../navigation/HomeStack";
 import UserPreview from "../../components/UserPreview";
 
@@ -23,6 +24,7 @@ interface FriendWithMeta {
 	username: string;
 	lastPostText: string;
 	lastPostAt: Date | null;
+	hasNewActivity: boolean;
 }
 
 interface SelfMeta {
@@ -39,6 +41,11 @@ export function HomeScreen() {
 		lastPostAt: null,
 	});
 	const [loading, setLoading] = useState(true);
+	// Friends opened this session, with the local time we opened them. Used to
+	// clear the dot instantly on tap and to keep it cleared while the
+	// server-side `lastViewedAt` write propagates — without permanently
+	// suppressing dots if the friend posts again later.
+	const viewedThisSession = useRef<Map<string, Date>>(new Map());
 
 	useFocusEffect(
 		useCallback(() => {
@@ -62,6 +69,7 @@ export function HomeScreen() {
 
 				// Fetch friendships and friend meta
 				const friendships = await getFriendships(user!.uid);
+				const viewedMap = await getViewedMap(user!.uid);
 
 				const friendUids = friendships.map((f) =>
 					f.requesterId === user!.uid ? f.receiverId : f.requesterId,
@@ -77,12 +85,30 @@ export function HomeScreen() {
 					if (userSnap.exists()) {
 						const userData = userSnap.data();
 						const metaData = metaSnap.exists() ? metaSnap.data() : null;
+						const friendLastPostAt =
+							metaData?.lastPostAt?.toDate() ?? null;
+						// Use whichever view is more recent: the server-recorded
+						// `lastViewedAt` or an optimistic local stamp from tapping
+						// the friend this session (covers the propagation gap).
+						let effectiveViewed = viewedMap[friendUid];
+						const localViewed = viewedThisSession.current.get(friendUid);
+						if (
+							localViewed &&
+							(!(effectiveViewed instanceof Date) ||
+								localViewed > effectiveViewed)
+						) {
+							effectiveViewed = localViewed;
+						}
 						friendsWithMeta.push({
 							uid: friendUid,
 							displayName: userData.displayName,
 							username: userData.username,
 							lastPostText: metaData?.lastPostText ?? "",
-							lastPostAt: metaData?.lastPostAt?.toDate() ?? null,
+							lastPostAt: friendLastPostAt,
+							hasNewActivity: hasNewActivity(
+								friendLastPostAt,
+								effectiveViewed
+							),
 						});
 					}
 				}
@@ -107,6 +133,23 @@ export function HomeScreen() {
 			};
 		}, [user]),
 	);
+
+	function handleFriendPress(item: FriendWithMeta) {
+		// Opening the friend's page marks it viewed: record the local time and
+		// clear the dot now so it doesn't linger while the page loads and the
+		// focus reload runs.
+		viewedThisSession.current.set(item.uid, new Date());
+		setFriends((prev) =>
+			prev.map((f) =>
+				f.uid === item.uid ? { ...f, hasNewActivity: false } : f,
+			),
+		);
+		navigation.navigate("FriendPage", {
+			friendUid: item.uid,
+			friendDisplayName: item.displayName,
+			friendUsername: item.username,
+		});
+	}
 
 	if (loading) {
 		return (
@@ -149,13 +192,8 @@ export function HomeScreen() {
 						username={item.username}
 						previewText={item.lastPostText || "No posts yet"}
 						timestamp={item.lastPostAt}
-						onPress={() =>
-							navigation.navigate("FriendPage", {
-								friendUid: item.uid,
-								friendDisplayName: item.displayName,
-								friendUsername: item.username,
-							})
-						}
+						hasNewActivity={item.hasNewActivity}
+						onPress={() => handleFriendPress(item)}
 					/>
 				)}
 				ListEmptyComponent={

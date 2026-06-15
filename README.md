@@ -35,10 +35,10 @@ for the detailed design and the decisions behind it.
 
 **Green dots for new activity** _(on the homepage friend lines, matching the reference app)_
 
-- [ ] `users/{uid}/viewedFriends/{friendUid}` docs storing `lastViewedAt`
-- [ ] Homepage shows a green dot when a friend's `meta.lastPostAt` is newer than my `lastViewedAt` (or never viewed)
-- [ ] Opening a friend's page stamps `lastViewedAt = now`, clearing the dot
-- [ ] Firestore security rules for `viewedFriends`
+- [x] `users/{uid}/viewedFriends/{friendUid}` docs storing `lastViewedAt`
+- [x] Homepage shows a green dot when a friend's `meta.lastPostAt` is newer than my `lastViewedAt` (or never viewed)
+- [x] Opening a friend's page stamps `lastViewedAt = now`, clearing the dot
+- [x] Firestore security rules for `viewedFriends`
 
 ### Tier 3 — P1 (post-MVP)
 

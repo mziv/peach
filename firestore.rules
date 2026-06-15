@@ -1,0 +1,74 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // User profile docs: any signed-in user can read (search, friend pages);
+    // only the owner can write their own profile.
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(uid);
+
+      // Profile meta (last post text/time): readable by any signed-in user,
+      // writable only by the owner.
+      match /meta/{metaId} {
+        allow read: if isSignedIn();
+        allow write: if isOwner(uid);
+      }
+
+      // Posts: readable by any signed-in user. The owner can create, edit, and
+      // delete their own posts. Any signed-in user may update ONLY the
+      // likeCount / commentCount counters, because liking or commenting on a
+      // friend's post bumps those counters on the post doc itself
+      // (see services/likes.ts and services/comments.ts).
+      match /posts/{postId} {
+        allow read: if isSignedIn();
+        allow create, delete: if isOwner(uid);
+        allow update: if isOwner(uid) ||
+          (isSignedIn() &&
+           request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['likeCount', 'commentCount']));
+
+        // Comments: any signed-in user may read and add comments.
+        match /comments/{commentId} {
+          allow read: if isSignedIn();
+          allow write: if isSignedIn();
+        }
+
+        // Likes: readable by any signed-in user; each user manages only their
+        // own like doc (doc id == liker uid).
+        match /likes/{likerUid} {
+          allow read: if isSignedIn();
+          allow write: if isOwner(likerUid);
+        }
+      }
+
+      // Viewed-friends read state: private to the owner. The doc id is the
+      // friend's uid; only the viewer can read or write their own history.
+      match /viewedFriends/{friendUid} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // Friendships: a signed-in user may read/write a friendship they are part
+    // of. Creating a request: the requester must be the signed-in user.
+    match /friendships/{friendshipId} {
+      allow read: if isSignedIn() &&
+        (request.auth.uid == resource.data.requesterId ||
+         request.auth.uid == resource.data.receiverId);
+      allow create: if isSignedIn() &&
+        request.auth.uid == request.resource.data.requesterId;
+      allow update, delete: if isSignedIn() &&
+        (request.auth.uid == resource.data.requesterId ||
+         request.auth.uid == resource.data.receiverId);
+    }
+  }
+}
