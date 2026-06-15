@@ -24,10 +24,18 @@ service cloud.firestore {
         allow write: if isOwner(uid);
       }
 
-      // Posts: readable by any signed-in user; only the owner writes their own.
+      // Posts: readable by any signed-in user. The owner can create, edit, and
+      // delete their own posts. Any signed-in user may update ONLY the
+      // likeCount / commentCount counters, because liking or commenting on a
+      // friend's post bumps those counters on the post doc itself
+      // (see services/likes.ts and services/comments.ts).
       match /posts/{postId} {
         allow read: if isSignedIn();
-        allow write: if isOwner(uid);
+        allow create, delete: if isOwner(uid);
+        allow update: if isOwner(uid) ||
+          (isSignedIn() &&
+           request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['likeCount', 'commentCount']));
 
         // Comments: any signed-in user may read and add comments.
         match /comments/{commentId} {
