@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
 	View,
 	Text,
@@ -41,6 +41,11 @@ export function HomeScreen() {
 		lastPostAt: null,
 	});
 	const [loading, setLoading] = useState(true);
+	// Friends opened this session, with the local time we opened them. Used to
+	// clear the dot instantly on tap and to keep it cleared while the
+	// server-side `lastViewedAt` write propagates — without permanently
+	// suppressing dots if the friend posts again later.
+	const viewedThisSession = useRef<Map<string, Date>>(new Map());
 
 	useFocusEffect(
 		useCallback(() => {
@@ -82,6 +87,18 @@ export function HomeScreen() {
 						const metaData = metaSnap.exists() ? metaSnap.data() : null;
 						const friendLastPostAt =
 							metaData?.lastPostAt?.toDate() ?? null;
+						// Use whichever view is more recent: the server-recorded
+						// `lastViewedAt` or an optimistic local stamp from tapping
+						// the friend this session (covers the propagation gap).
+						let effectiveViewed = viewedMap[friendUid];
+						const localViewed = viewedThisSession.current.get(friendUid);
+						if (
+							localViewed &&
+							(!(effectiveViewed instanceof Date) ||
+								localViewed > effectiveViewed)
+						) {
+							effectiveViewed = localViewed;
+						}
 						friendsWithMeta.push({
 							uid: friendUid,
 							displayName: userData.displayName,
@@ -90,7 +107,7 @@ export function HomeScreen() {
 							lastPostAt: friendLastPostAt,
 							hasNewActivity: hasNewActivity(
 								friendLastPostAt,
-								viewedMap[friendUid]
+								effectiveViewed
 							),
 						});
 					}
@@ -116,6 +133,23 @@ export function HomeScreen() {
 			};
 		}, [user]),
 	);
+
+	function handleFriendPress(item: FriendWithMeta) {
+		// Opening the friend's page marks it viewed: record the local time and
+		// clear the dot now so it doesn't linger while the page loads and the
+		// focus reload runs.
+		viewedThisSession.current.set(item.uid, new Date());
+		setFriends((prev) =>
+			prev.map((f) =>
+				f.uid === item.uid ? { ...f, hasNewActivity: false } : f,
+			),
+		);
+		navigation.navigate("FriendPage", {
+			friendUid: item.uid,
+			friendDisplayName: item.displayName,
+			friendUsername: item.username,
+		});
+	}
 
 	if (loading) {
 		return (
@@ -159,13 +193,7 @@ export function HomeScreen() {
 						previewText={item.lastPostText || "No posts yet"}
 						timestamp={item.lastPostAt}
 						hasNewActivity={item.hasNewActivity}
-						onPress={() =>
-							navigation.navigate("FriendPage", {
-								friendUid: item.uid,
-								friendDisplayName: item.displayName,
-								friendUsername: item.username,
-							})
-						}
+						onPress={() => handleFriendPress(item)}
 					/>
 				)}
 				ListEmptyComponent={
