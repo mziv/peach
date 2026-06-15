@@ -9,6 +9,7 @@ interface UserPreviewProps {
   username: string;
   previewText: string;
   timestamp?: Date | null;
+  hasNewActivity?: boolean;
   onPress: () => void;
 }
 
@@ -17,6 +18,7 @@ export default function UserPreview({
   username,
   previewText,
   timestamp,
+  hasNewActivity = false,
   onPress,
 }: UserPreviewProps) {
   return (
@@ -27,9 +29,17 @@ export default function UserPreview({
       <Avatar size={40} displayName={displayName} />
       <View className="flex-1 ml-3">
         <Text className="text-base font-semibold">{displayName}</Text>
-        <Text className="text-sm text-gray-500" numberOfLines={1}>
-          {previewText}
-        </Text>
+        <View className="flex-row items-center">
+          {hasNewActivity && (
+            <View
+              testID="new-activity-dot"
+              className="w-2 h-2 rounded-full bg-green mr-1.5"
+            />
+          )}
+          <Text className="text-sm text-gray-500 flex-1" numberOfLines={1}>
+            {previewText}
+          </Text>
+        </View>
       </View>
       {timestamp && (
         <Text className="text-xs text-gray-400 mr-1">
