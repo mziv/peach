@@ -54,10 +54,10 @@ for the detailed design and the decisions behind it.
 
 **Profile photo upload** _(the deferred half of Settings)_
 
-- [ ] Add Firebase Storage + `expo-image-picker`
-- [ ] Pick a photo → upload → store `photoURL` on the user doc
-- [ ] `Avatar` renders `photoURL` (initials fallback)
-- [ ] Photo picker UI in Settings
+- [x] Add Firebase Storage + `expo-image-picker`
+- [x] Pick a photo → upload → store `photoURL` on the user doc
+- [x] `Avatar` renders `photoURL` (initials fallback)
+- [x] Photo picker UI in Settings
 
 ### Out of scope (for now)
 
