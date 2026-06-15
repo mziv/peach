@@ -5,6 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   Modal,
+  Platform,
   ScrollView,
   Image,
 } from "react-native";
@@ -32,6 +33,11 @@ export function SettingsScreen() {
     "idle" | "uploading" | "removing"
   >("idle");
   const photoBusy = photoStatus !== "idle";
+  const [photoModalVisible, setPhotoModalVisible] = useState(false);
+  // Shown inline in the photo modal. We can't use Alert for photo feedback:
+  // react-native-web's Alert.alert is a no-op, so errors would be invisible
+  // on web (the same reason the chooser itself is a Modal, not an action sheet).
+  const [photoError, setPhotoError] = useState<string | null>(null);
   // Guards the whole pick flow (permission + picker) against re-entry, since
   // photoStatus only flips once an upload actually starts.
   const pickerActiveRef = useRef(false);
@@ -100,17 +106,24 @@ export function SettingsScreen() {
   async function pickAndUpload() {
     if (pickerActiveRef.current) return;
     pickerActiveRef.current = true;
+    setPhotoError(null);
     try {
-      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) {
-        Alert.alert(
-          "Permission needed",
-          "Enable photo library access in Settings to choose a profile photo."
-        );
-        return;
+      // On web the media-library permission is always granted, and the file
+      // dialog only opens inside the tap's user-gesture window — awaiting the
+      // permission first can drop that activation, so we skip it on web and
+      // launch the picker directly.
+      if (Platform.OS !== "web") {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+          setPhotoError(
+            "Enable photo library access in Settings to choose a profile photo."
+          );
+          return;
+        }
       }
       // mediaTypes defaults to images; omitted to avoid version-specific
       // MediaTypeOptions/MediaType API churn across expo-image-picker releases.
+      // allowsEditing/aspect/quality apply on native; web ignores them.
       const result = await ImagePicker.launchImageLibraryAsync({
         allowsEditing: true,
         aspect: [1, 1],
@@ -121,8 +134,9 @@ export function SettingsScreen() {
       try {
         await uploadProfilePhoto(user.uid, result.assets[0].uri);
         await refreshUser();
+        setPhotoModalVisible(false);
       } catch (err: any) {
-        Alert.alert("Error", err.message);
+        setPhotoError(err.message ?? "Upload failed. Please try again.");
       } finally {
         setPhotoStatus("idle");
       }
@@ -133,12 +147,14 @@ export function SettingsScreen() {
 
   async function handleRemovePhoto() {
     if (!user) return;
+    setPhotoError(null);
     setPhotoStatus("removing");
     try {
       await removeProfilePhoto(user.uid);
       await refreshUser();
+      setPhotoModalVisible(false);
     } catch (err: any) {
-      Alert.alert("Error", err.message);
+      setPhotoError(err.message ?? "Couldn't remove photo. Please try again.");
     } finally {
       setPhotoStatus("idle");
     }
@@ -146,17 +162,14 @@ export function SettingsScreen() {
 
   function openPhotoOptions() {
     if (photoBusy || pickerActiveRef.current) return;
-    const options = user?.photoURL
-      ? [
-          { text: "Change photo", onPress: pickAndUpload },
-          { text: "Remove photo", style: "destructive" as const, onPress: handleRemovePhoto },
-          { text: "Cancel", style: "cancel" as const },
-        ]
-      : [
-          { text: "Change photo", onPress: pickAndUpload },
-          { text: "Cancel", style: "cancel" as const },
-        ];
-    Alert.alert("Profile photo", undefined, options);
+    setPhotoError(null);
+    setPhotoModalVisible(true);
+  }
+
+  function closePhotoModal() {
+    if (photoBusy) return; // don't dismiss mid-upload/remove
+    setPhotoModalVisible(false);
+    setPhotoError(null);
   }
 
   return (
@@ -307,6 +320,55 @@ export function SettingsScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Photo chooser modal. Built as a Modal (not Alert.alert) because
+          react-native-web's Alert is a no-op — an action sheet would do
+          nothing on web. */}
+      <Modal
+        visible={photoModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closePhotoModal}
+      >
+        <View
+          className="flex-1 justify-center items-center px-8"
+          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+        >
+          <View className="bg-white rounded-2xl p-5 w-full">
+            <Text className="text-base font-semibold mb-2">Profile photo</Text>
+            {photoError && (
+              <Text className="text-sm text-red-600 mb-3">{photoError}</Text>
+            )}
+            <TouchableOpacity
+              className="rounded-full bg-peach px-4 py-3"
+              onPress={pickAndUpload}
+              disabled={photoBusy}
+            >
+              <Text className="text-white font-semibold text-center">
+                {photoStatus === "uploading" ? "Uploading…" : "Change photo"}
+              </Text>
+            </TouchableOpacity>
+            {user?.photoURL && (
+              <TouchableOpacity
+                className="rounded-full border border-red-200 px-4 py-3 mt-3"
+                onPress={handleRemovePhoto}
+                disabled={photoBusy}
+              >
+                <Text className="text-red-600 font-semibold text-center">
+                  {photoStatus === "removing" ? "Removing…" : "Remove photo"}
+                </Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              className="px-4 py-3 mt-1"
+              onPress={closePhotoModal}
+              disabled={photoBusy}
+            >
+              <Text className="text-base text-gray-500 text-center">Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
