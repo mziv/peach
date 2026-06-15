@@ -1,4 +1,4 @@
-import { getDoc, getDocs, updateDoc } from "firebase/firestore";
+import { doc, getDoc, getDocs, updateDoc } from "firebase/firestore";
 import { getUserByUid, searchUsersByUsername, updateDisplayName } from "../../src/services/users";
 
 jest.mock("firebase/firestore", () => ({
@@ -87,6 +87,7 @@ describe("users service", () => {
 
       await updateDisplayName("uid-1", "New Name");
 
+      expect(doc).toHaveBeenCalledWith(expect.anything(), "users", "uid-1");
       expect(updateDoc).toHaveBeenCalledWith(expect.anything(), {
         displayName: "New Name",
       });
