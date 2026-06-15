@@ -4,12 +4,12 @@ import {
 	Text,
 	TouchableOpacity,
 	ActivityIndicator,
-	Alert,
 	SectionList,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../../contexts/AuthContext";
+import { confirmDestructive, notify } from "../../utils/dialog";
 import {
 	getPendingRequests,
 	getOutgoingRequests,
@@ -100,7 +100,7 @@ export function FriendRequestsScreen() {
 			await acceptFriendRequest(friendshipId);
 			await loadAll();
 		} catch (err: any) {
-			Alert.alert("Error", err.message);
+			notify("Error", err.message);
 		}
 	}
 
@@ -109,30 +109,23 @@ export function FriendRequestsScreen() {
 			await declineFriendRequest(friendshipId);
 			await loadAll();
 		} catch (err: any) {
-			Alert.alert("Error", err.message);
+			notify("Error", err.message);
 		}
 	}
 
 	async function handleRemoveFriend(friendshipId: string, displayName: string) {
-		Alert.alert(
+		const confirmed = await confirmDestructive(
 			"Remove Friend",
 			`Are you sure you want to unfriend ${displayName}?`,
-			[
-				{ text: "Cancel", style: "cancel" },
-				{
-					text: "Remove",
-					style: "destructive",
-					onPress: async () => {
-						try {
-							await removeFriend(friendshipId);
-							await loadAll();
-						} catch (err: any) {
-							Alert.alert("Error", err.message);
-						}
-					},
-				},
-			],
+			"Remove",
 		);
+		if (!confirmed) return;
+		try {
+			await removeFriend(friendshipId);
+			await loadAll();
+		} catch (err: any) {
+			notify("Error", err.message);
+		}
 	}
 
 	if (loading) {

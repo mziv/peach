@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity } from "react-native";
+import { notify } from "../../utils/dialog";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import { AuthStackParamList } from "../../navigation/AuthStack";
@@ -17,14 +18,14 @@ export function SignUpScreen() {
 
   async function handleSignUp() {
     if (!email || !password || !username || !displayName) {
-      Alert.alert("Error", "Please fill in all fields.");
+      notify("Error", "Please fill in all fields.");
       return;
     }
     setLoading(true);
     try {
       await signUp(email, password, username, displayName);
     } catch (err: any) {
-      Alert.alert("Sign Up Failed", err.message);
+      notify("Sign Up Failed", err.message);
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity } from "react-native";
+import { notify } from "../../utils/dialog";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import { AuthStackParamList } from "../../navigation/AuthStack";
@@ -18,7 +19,7 @@ export function ForgotPasswordScreen() {
 
   async function handleReset() {
     if (!email) {
-      Alert.alert("Error", "Please enter your email address.");
+      notify("Error", "Please enter your email address.");
       return;
     }
     setLoading(true);
@@ -26,7 +27,7 @@ export function ForgotPasswordScreen() {
       await resetPassword(email);
       setSent(true);
     } catch {
-      Alert.alert(
+      notify(
         "Error",
         "Something went wrong. Please check your connection and try again."
       );

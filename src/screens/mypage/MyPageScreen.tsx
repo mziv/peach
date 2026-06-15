@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
@@ -98,7 +97,7 @@ export function MyPageScreen() {
       await createPost(user.uid, newPostText.trim());
       setNewPostText("");
     } catch (err: any) {
-      Alert.alert("Error", err.message);
+      notify("Error", err.message);
     } finally {
       setPosting(false);
     }

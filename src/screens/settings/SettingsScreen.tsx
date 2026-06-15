@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
   Modal,
   ScrollView,
 } from "react-native";
@@ -12,6 +11,7 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../contexts/AuthContext";
+import { confirmDestructive, notify } from "../../utils/dialog";
 import { logOut, reauthenticate, deleteAuthAccount } from "../../services/auth";
 import { updateDisplayName, deleteAccountData } from "../../services/users";
 import { HomeStackParamList } from "../../navigation/HomeStack";
@@ -36,9 +36,9 @@ export function SettingsScreen() {
     try {
       await updateDisplayName(user.uid, trimmed);
       await refreshUser();
-      Alert.alert("Saved", "Your display name has been updated.");
+      notify("Saved", "Your display name has been updated.");
     } catch (err: any) {
-      Alert.alert("Error", err.message);
+      notify("Error", err.message);
     } finally {
       setSaving(false);
     }
@@ -48,39 +48,30 @@ export function SettingsScreen() {
     try {
       await logOut();
     } catch (err: any) {
-      Alert.alert("Error", err.message);
+      notify("Error", err.message);
     }
   }
 
-  function confirmDelete() {
-    Alert.alert(
+  async function confirmDelete() {
+    const confirmed = await confirmDestructive(
       "Delete account",
-      "This permanently deletes your account, posts, and friendships. This cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            if (!user) return;
-            setDeleting(true);
-            try {
-              await deleteAccountData(user.uid);
-              await deleteAuthAccount();
-              // onAuthStateChanged clears the session → routes to auth stack.
-            } catch (err: any) {
-              if (err.code === "auth/requires-recent-login") {
-                setPwModalVisible(true);
-              } else {
-                Alert.alert("Error", err.message);
-              }
-            } finally {
-              setDeleting(false);
-            }
-          },
-        },
-      ]
+      "This permanently deletes your account, posts, and friendships. This cannot be undone."
     );
+    if (!confirmed || !user) return;
+    setDeleting(true);
+    try {
+      await deleteAccountData(user.uid);
+      await deleteAuthAccount();
+      // onAuthStateChanged clears the session → routes to auth stack.
+    } catch (err: any) {
+      if (err.code === "auth/requires-recent-login") {
+        setPwModalVisible(true);
+      } else {
+        notify("Error", err.message);
+      }
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function handleReauthAndDelete() {
@@ -90,7 +81,7 @@ export function SettingsScreen() {
       await deleteAuthAccount();
       setPwModalVisible(false);
     } catch (err: any) {
-      Alert.alert("Error", err.message);
+      notify("Error", err.message);
     } finally {
       setPassword("");
       setDeleting(false);
