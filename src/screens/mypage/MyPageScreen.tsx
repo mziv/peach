@@ -17,7 +17,6 @@ import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "../../config/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { createPost } from "../../services/posts";
-import { logOut } from "../../services/auth";
 import { likePost, unlikePost, hasLiked } from "../../services/likes";
 import { HomeStackParamList } from "../../navigation/HomeStack";
 import { Post } from "../../types";
@@ -118,23 +117,6 @@ export function MyPageScreen() {
     }
   }
 
-  function handleLogout() {
-    Alert.alert("Settings", "What would you like to do?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Log Out",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await logOut();
-          } catch (err: any) {
-            Alert.alert("Error", err.message);
-          }
-        },
-      },
-    ]);
-  }
-
   if (loading) {
     return (
       <View className="flex-1 justify-center items-center bg-white">
@@ -170,7 +152,7 @@ export function MyPageScreen() {
           >
             <Ionicons name="notifications-outline" size={22} color="black" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleLogout}>
+          <TouchableOpacity onPress={() => navigation.navigate("Settings")}>
             <Ionicons name="settings-outline" size={22} color="black" />
           </TouchableOpacity>
         </View>
