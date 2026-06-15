@@ -4,13 +4,15 @@ import { HomeScreen } from "../screens/home/HomeScreen";
 import { FriendPageScreen } from "../screens/home/FriendPageScreen";
 import { MyPageScreen } from "../screens/mypage/MyPageScreen";
 import { SearchUsersScreen } from "../screens/friends/SearchUsersScreen";
+import { ActivityScreen } from "../screens/activity/ActivityScreen";
 import { SettingsScreen } from "../screens/settings/SettingsScreen";
 
 export type HomeStackParamList = {
   Home: undefined;
-  MyPage: undefined;
+  MyPage: { openCommentPostId?: string } | undefined;
   FriendPage: { friendUid: string; friendDisplayName: string; friendUsername: string };
   SearchUsers: undefined;
+  Activity: undefined;
   Settings: undefined;
 };
 
@@ -23,6 +25,7 @@ export function HomeStack() {
       <Stack.Screen name="MyPage" component={MyPageScreen} />
       <Stack.Screen name="FriendPage" component={FriendPageScreen} />
       <Stack.Screen name="SearchUsers" component={SearchUsersScreen} />
+      <Stack.Screen name="Activity" component={ActivityScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
     </Stack.Navigator>
   );

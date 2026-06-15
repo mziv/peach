@@ -1,7 +1,6 @@
 import {
   collection,
   doc,
-  addDoc,
   getDocs,
   query,
   orderBy,
@@ -11,13 +10,16 @@ import {
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { Comment } from "../types";
+import { addCommentNotification } from "./notifications";
 
 export async function addComment(
   postOwnerUid: string,
   postId: string,
   authorUid: string,
   authorUsername: string,
-  text: string
+  authorDisplayName: string,
+  text: string,
+  postText: string
 ): Promise<void> {
   const batch = writeBatch(db);
 
@@ -33,6 +35,18 @@ export async function addComment(
 
   const postRef = doc(db, "users", postOwnerUid, "posts", postId);
   batch.update(postRef, { commentCount: increment(1) });
+
+  if (authorUid !== postOwnerUid) {
+    addCommentNotification(batch, postOwnerUid, {
+      actorUid: authorUid,
+      actorUsername: authorUsername,
+      actorDisplayName: authorDisplayName,
+      postId,
+      postOwnerUid,
+      postTextPreview: postText.slice(0, 100),
+      commentText: text,
+    });
+  }
 
   await batch.commit();
 }

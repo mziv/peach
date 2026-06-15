@@ -43,7 +43,8 @@ export function FriendPageScreen() {
     visible: boolean;
     postOwnerUid: string;
     postId: string;
-  }>({ visible: false, postOwnerUid: "", postId: "" });
+    postText: string;
+  }>({ visible: false, postOwnerUid: "", postId: "", postText: "" });
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -90,6 +91,7 @@ export function FriendPageScreen() {
   async function handleLikeToggle(postId: string) {
     if (!user) return;
     const isLiked = likedMap[postId] ?? false;
+    const post = posts.find((p) => p.postId === postId);
 
     // Optimistic update
     setLikedMap((prev) => ({ ...prev, [postId]: !isLiked }));
@@ -105,7 +107,14 @@ export function FriendPageScreen() {
       if (isLiked) {
         await unlikePost(friendUid, postId, user.uid);
       } else {
-        await likePost(friendUid, postId, user.uid);
+        await likePost(
+          friendUid,
+          postId,
+          user.uid,
+          user.username,
+          user.displayName,
+          post?.text ?? ""
+        );
       }
     } catch {
       // Revert on error
@@ -173,6 +182,7 @@ export function FriendPageScreen() {
                 visible: true,
                 postOwnerUid: friendUid,
                 postId: item.postId,
+                postText: item.text,
               })
             }
           />
@@ -192,6 +202,7 @@ export function FriendPageScreen() {
         }
         postOwnerUid={commentModal.postOwnerUid}
         postId={commentModal.postId}
+        postText={commentModal.postText}
       />
     </View>
   );

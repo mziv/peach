@@ -56,6 +56,18 @@ service cloud.firestore {
       match /viewedFriends/{friendUid} {
         allow read, write: if isOwner(uid);
       }
+
+      // Activity feed: only the owner reads their own notifications. An actor
+      // (commenter/liker) creates one in the post owner's subcollection, and
+      // removes their own like notification on unlike (see services/likes.ts
+      // and services/comments.ts).
+      match /notifications/{notifId} {
+        allow read: if isOwner(uid);
+        allow create: if isSignedIn() &&
+          request.resource.data.actorUid == request.auth.uid;
+        allow delete: if isSignedIn() &&
+          request.auth.uid == resource.data.actorUid;
+      }
     }
 
     // Friendships: a signed-in user may read/write a friendship they are part

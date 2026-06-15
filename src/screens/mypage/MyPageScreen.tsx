@@ -10,7 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
@@ -19,6 +19,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { createPost } from "../../services/posts";
 import { likePost, unlikePost, hasLiked } from "../../services/likes";
 import { HomeStackParamList } from "../../navigation/HomeStack";
+import { useUnreadActivity } from "../../hooks/useUnreadActivity";
 import { Post } from "../../types";
 import Avatar from "../../components/Avatar";
 import PostItem from "../../components/PostItem";
@@ -29,6 +30,8 @@ type MyPageNav = NativeStackNavigationProp<HomeStackParamList, "MyPage">;
 export function MyPageScreen() {
   const navigation = useNavigation<MyPageNav>();
   const { user } = useAuth();
+  const route = useRoute<RouteProp<HomeStackParamList, "MyPage">>();
+  const hasUnread = useUnreadActivity(user?.uid);
   const [posts, setPosts] = useState<Post[]>([]);
   const [newPostText, setNewPostText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -38,7 +41,8 @@ export function MyPageScreen() {
     visible: boolean;
     postOwnerUid: string;
     postId: string;
-  }>({ visible: false, postOwnerUid: "", postId: "" });
+    postText: string;
+  }>({ visible: false, postOwnerUid: "", postId: "", postText: "" });
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -71,6 +75,21 @@ export function MyPageScreen() {
     return unsubscribe;
   }, [user]);
 
+  useEffect(() => {
+    if (!user) return;
+    const postId = route.params?.openCommentPostId;
+    if (!postId || posts.length === 0) return;
+    const post = posts.find((p) => p.postId === postId);
+    if (!post) return;
+    setCommentModal({
+      visible: true,
+      postOwnerUid: user.uid,
+      postId: post.postId,
+      postText: post.text,
+    });
+    navigation.setParams({ openCommentPostId: undefined });
+  }, [route.params?.openCommentPostId, posts]);
+
   async function handlePost() {
     if (!newPostText.trim() || !user) return;
     setPosting(true);
@@ -87,6 +106,7 @@ export function MyPageScreen() {
   async function handleLikeToggle(postId: string) {
     if (!user) return;
     const isLiked = likedMap[postId] ?? false;
+    const post = posts.find((p) => p.postId === postId);
 
     // Optimistic update
     setLikedMap((prev) => ({ ...prev, [postId]: !isLiked }));
@@ -102,7 +122,14 @@ export function MyPageScreen() {
       if (isLiked) {
         await unlikePost(user.uid, postId, user.uid);
       } else {
-        await likePost(user.uid, postId, user.uid);
+        await likePost(
+          user.uid,
+          postId,
+          user.uid,
+          user.username,
+          user.displayName,
+          post?.text ?? ""
+        );
       }
     } catch {
       // Revert on error
@@ -147,10 +174,13 @@ export function MyPageScreen() {
           </View>
         </View>
         <View className="flex-row items-center gap-3">
-          <TouchableOpacity
-            onPress={() => Alert.alert("Coming soon", "Activity log is coming soon!")}
-          >
-            <Ionicons name="notifications-outline" size={22} color="black" />
+          <TouchableOpacity onPress={() => navigation.navigate("Activity")}>
+            <View>
+              <Ionicons name="notifications-outline" size={22} color="black" />
+              {hasUnread ? (
+                <View className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-peach" />
+              ) : null}
+            </View>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate("Settings")}>
             <Ionicons name="settings-outline" size={22} color="black" />
@@ -181,6 +211,7 @@ export function MyPageScreen() {
                 visible: true,
                 postOwnerUid: user!.uid,
                 postId: item.postId,
+                postText: item.text,
               })
             }
           />
@@ -224,6 +255,7 @@ export function MyPageScreen() {
         }
         postOwnerUid={commentModal.postOwnerUid}
         postId={commentModal.postId}
+        postText={commentModal.postText}
       />
     </KeyboardAvoidingView>
   );

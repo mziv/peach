@@ -33,3 +33,16 @@ export interface Friendship {
   status: "pending" | "accepted";
   createdAt: Date;
 }
+
+export interface Notification {
+  notifId: string;
+  type: "comment" | "like";
+  actorUid: string;
+  actorUsername: string;
+  actorDisplayName: string;
+  postId: string;
+  postOwnerUid: string;
+  postTextPreview: string;
+  commentText?: string;
+  createdAt: Date;
+}

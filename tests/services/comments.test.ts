@@ -20,15 +20,29 @@ describe("comments service", () => {
   beforeEach(() => jest.clearAllMocks());
 
   describe("addComment", () => {
-    it("creates a comment and increments commentCount in a batch", async () => {
+    function mockBatchSetup() {
       const mockBatch = {
         set: jest.fn(),
         update: jest.fn(),
+        delete: jest.fn(),
         commit: jest.fn().mockResolvedValue(undefined),
       };
       (writeBatch as jest.Mock).mockReturnValue(mockBatch);
+      return mockBatch;
+    }
 
-      await addComment("uid-1", "post-1", "uid-2", "commenter", "Nice post!");
+    it("creates a comment and increments commentCount in a batch", async () => {
+      const mockBatch = mockBatchSetup();
+
+      await addComment(
+        "owner-1",
+        "post-1",
+        "uid-2",
+        "commenter",
+        "Commenter Name",
+        "Nice post!",
+        "the original post text"
+      );
 
       expect(mockBatch.set).toHaveBeenCalledWith(
         expect.anything(),
@@ -38,11 +52,46 @@ describe("comments service", () => {
           text: "Nice post!",
         })
       );
-      expect(mockBatch.update).toHaveBeenCalledWith(
-        expect.anything(),
-        { commentCount: "increment(1)" }
-      );
+      expect(mockBatch.update).toHaveBeenCalledWith(expect.anything(), {
+        commentCount: "increment(1)",
+      });
       expect(mockBatch.commit).toHaveBeenCalled();
+    });
+
+    it("fans out a comment notification to the post owner", async () => {
+      const mockBatch = mockBatchSetup();
+
+      await addComment(
+        "owner-1",
+        "post-1",
+        "uid-2",
+        "commenter",
+        "Commenter Name",
+        "Nice post!",
+        "the original post text"
+      );
+
+      expect(mockBatch.set).toHaveBeenCalledTimes(2);
+      expect(mockBatch.set).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ type: "comment", actorUid: "uid-2" })
+      );
+    });
+
+    it("does not notify when commenting on your own post", async () => {
+      const mockBatch = mockBatchSetup();
+
+      await addComment(
+        "owner-1",
+        "post-1",
+        "owner-1",
+        "owner",
+        "Owner Name",
+        "self comment",
+        "my own post"
+      );
+
+      expect(mockBatch.set).toHaveBeenCalledTimes(1);
     });
   });
 

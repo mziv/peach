@@ -24,12 +24,14 @@ for the detailed design and the decisions behind it.
 
 **Activity feed / notifications** _(entry: icon beside the gear in My Page header)_
 
-- [ ] `users/{uid}/notifications` subcollection + service (create / list / mark read)
-- [ ] `addComment` fans out a `comment` notification to the post owner (never self)
-- [ ] `likePost` / `unlikePost` create / remove a `like` notification
-- [ ] Activity screen UI: avatar + display name + verb + time + post preview; tapping a row opens the post
-- [ ] `activityLastReadAt` on the user doc; unread dot on the header icon; opening Activity marks read
-- [ ] Firestore security rules for `notifications`
+- [x] `users/{uid}/notifications` subcollection + service (create / list / mark read)
+- [x] `addComment` fans out a `comment` notification to the post owner (never self)
+- [x] `likePost` / `unlikePost` create / remove a `like` notification
+- [x] Activity screen UI: avatar + display name + verb + time + post preview; tapping a comment row opens that post's comment thread (like rows are non-interactive)
+- [x] `activityLastReadAt` on the user doc; unread dot on the header icon; opening Activity marks read
+- [x] Firestore security rules for `notifications`
+
+> The `notifications` rules live in `firestore.rules` (wired for deploy via `firebase.json`).
 
 ### Tier 2 — Pre-MVP
 

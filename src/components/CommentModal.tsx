@@ -30,6 +30,7 @@ interface CommentModalProps {
   onClose: () => void;
   postOwnerUid: string;
   postId: string;
+  postText: string;
 }
 
 export default function CommentModal({
@@ -37,6 +38,7 @@ export default function CommentModal({
   onClose,
   postOwnerUid,
   postId,
+  postText,
 }: CommentModalProps) {
   const { user } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
@@ -116,7 +118,9 @@ export default function CommentModal({
         postId,
         user.uid,
         user.username,
-        commentText.trim()
+        user.displayName,
+        commentText.trim(),
+        postText
       );
       setCommentText("");
     } finally {
