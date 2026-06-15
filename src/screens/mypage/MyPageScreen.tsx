@@ -10,7 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
@@ -20,6 +20,7 @@ import { createPost } from "../../services/posts";
 import { logOut } from "../../services/auth";
 import { likePost, unlikePost, hasLiked } from "../../services/likes";
 import { HomeStackParamList } from "../../navigation/HomeStack";
+import { useUnreadActivity } from "../../hooks/useUnreadActivity";
 import { Post } from "../../types";
 import Avatar from "../../components/Avatar";
 import PostItem from "../../components/PostItem";
@@ -30,6 +31,8 @@ type MyPageNav = NativeStackNavigationProp<HomeStackParamList, "MyPage">;
 export function MyPageScreen() {
   const navigation = useNavigation<MyPageNav>();
   const { user } = useAuth();
+  const route = useRoute<RouteProp<HomeStackParamList, "MyPage">>();
+  const hasUnread = useUnreadActivity(user?.uid);
   const [posts, setPosts] = useState<Post[]>([]);
   const [newPostText, setNewPostText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -72,6 +75,24 @@ export function MyPageScreen() {
     });
     return unsubscribe;
   }, [user]);
+
+  useEffect(() => {
+    const focusPostId = route.params?.focusPostId;
+    if (!focusPostId || posts.length === 0) return;
+    const index = posts.findIndex((p) => p.postId === focusPostId);
+    if (index < 0) return;
+    flatListRef.current?.scrollToIndex({ index, animated: true });
+    if (route.params?.openComments) {
+      const post = posts[index];
+      setCommentModal({
+        visible: true,
+        postOwnerUid: user!.uid,
+        postId: post.postId,
+        postText: post.text,
+      });
+    }
+    navigation.setParams({ focusPostId: undefined, openComments: undefined });
+  }, [route.params?.focusPostId, route.params?.openComments, posts]);
 
   async function handlePost() {
     if (!newPostText.trim() || !user) return;
@@ -174,10 +195,13 @@ export function MyPageScreen() {
           </View>
         </View>
         <View className="flex-row items-center gap-3">
-          <TouchableOpacity
-            onPress={() => Alert.alert("Coming soon", "Activity log is coming soon!")}
-          >
-            <Ionicons name="notifications-outline" size={22} color="black" />
+          <TouchableOpacity onPress={() => navigation.navigate("Activity")}>
+            <View>
+              <Ionicons name="notifications-outline" size={22} color="black" />
+              {hasUnread ? (
+                <View className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-peach" />
+              ) : null}
+            </View>
           </TouchableOpacity>
           <TouchableOpacity onPress={handleLogout}>
             <Ionicons name="settings-outline" size={22} color="black" />
@@ -190,6 +214,7 @@ export function MyPageScreen() {
         ref={flatListRef}
         data={posts}
         keyExtractor={(item) => item.postId}
+        onScrollToIndexFailed={() => {}}
         onContentSizeChange={() => {
           if (posts.length > 0) {
             flatListRef.current?.scrollToEnd({ animated: false });
