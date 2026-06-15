@@ -6,14 +6,16 @@ import {
   TouchableOpacity,
   Modal,
   ScrollView,
+  Image,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../../contexts/AuthContext";
 import { confirmDestructive, notify } from "../../utils/dialog";
 import { logOut, reauthenticate, deleteAuthAccount } from "../../services/auth";
-import { updateDisplayName, deleteAccountData } from "../../services/users";
+import { updateDisplayName, deleteAccountData, uploadProfilePhoto, removeProfilePhoto } from "../../services/users";
 import { HomeStackParamList } from "../../navigation/HomeStack";
 
 type SettingsNav = NativeStackNavigationProp<HomeStackParamList, "Settings">;
@@ -26,6 +28,7 @@ export function SettingsScreen() {
   const [deleting, setDeleting] = useState(false);
   const [pwModalVisible, setPwModalVisible] = useState(false);
   const [password, setPassword] = useState("");
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   const trimmed = name.trim();
   const canSave = trimmed.length > 0 && trimmed !== user?.displayName && !saving;
@@ -88,6 +91,62 @@ export function SettingsScreen() {
     }
   }
 
+  async function pickAndUpload() {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert(
+        "Permission needed",
+        "Enable photo library access in Settings to choose a profile photo."
+      );
+      return;
+    }
+    // mediaTypes defaults to images; omitted to avoid version-specific
+    // MediaTypeOptions/MediaType API churn across expo-image-picker releases.
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (result.canceled || !user) return;
+    setPhotoBusy(true);
+    try {
+      await uploadProfilePhoto(user.uid, result.assets[0].uri);
+      await refreshUser();
+    } catch (err: any) {
+      Alert.alert("Error", err.message);
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  async function handleRemovePhoto() {
+    if (!user) return;
+    setPhotoBusy(true);
+    try {
+      await removeProfilePhoto(user.uid);
+      await refreshUser();
+    } catch (err: any) {
+      Alert.alert("Error", err.message);
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  function openPhotoOptions() {
+    if (photoBusy) return;
+    const options = user?.photoURL
+      ? [
+          { text: "Change photo", onPress: pickAndUpload },
+          { text: "Remove photo", style: "destructive" as const, onPress: handleRemovePhoto },
+          { text: "Cancel", style: "cancel" as const },
+        ]
+      : [
+          { text: "Change photo", onPress: pickAndUpload },
+          { text: "Cancel", style: "cancel" as const },
+        ];
+    Alert.alert("Profile photo", undefined, options);
+  }
+
   return (
     <View className="flex-1 bg-white">
       {/* Header */}
@@ -103,6 +162,26 @@ export function SettingsScreen() {
         <Text className="text-xs uppercase text-gray-400 px-4 pt-5 pb-2">
           Profile
         </Text>
+        <View className="items-center pb-4">
+          <TouchableOpacity onPress={openPhotoOptions} disabled={photoBusy}>
+            {user?.photoURL ? (
+              <Image
+                source={{ uri: user.photoURL }}
+                style={{ width: 80, height: 80, borderRadius: 40 }}
+              />
+            ) : (
+              <View
+                className="rounded-full items-center justify-center bg-gray-200"
+                style={{ width: 80, height: 80 }}
+              >
+                <Ionicons name="camera-outline" size={28} color="gray" />
+              </View>
+            )}
+          </TouchableOpacity>
+          <Text className="text-sm text-peach mt-2">
+            {photoBusy ? "Uploading…" : "Change photo"}
+          </Text>
+        </View>
         <View className="px-4">
           <Text className="text-sm text-gray-500 mb-1">Display name</Text>
           <View className="flex-row items-center">
