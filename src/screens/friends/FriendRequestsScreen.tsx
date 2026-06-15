@@ -157,7 +157,7 @@ export function FriendRequestsScreen() {
 			</View>
 
 			{/* Add Friend button */}
-			<View className="items-center my-3">
+			<View className="items-center my-3 py-3 mx-4">
 				<TouchableOpacity
 					className="bg-green rounded-full py-3 my-3 mx-4 items-center w-full"
 					onPress={() => navigation.navigate("SearchUsers")}
