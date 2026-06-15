@@ -124,6 +124,9 @@ export async function deleteAccountData(uid: string): Promise<void> {
   batch.delete(doc(db, "users", uid));
 
   // Remove the profile photo from Storage (not part of the Firestore batch).
+  // Storage and Firestore can't share a transaction, so we delete the image
+  // first and commit the Firestore batch last: if the commit fails, we've at
+  // worst removed an avatar we can no longer reference, never the reverse.
   try {
     await deleteObject(ref(storage, `avatars/${uid}`));
   } catch (err: any) {

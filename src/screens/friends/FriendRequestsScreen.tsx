@@ -32,6 +32,7 @@ type FriendsNav = NativeStackNavigationProp<
 interface RequestWithName extends Friendship {
 	otherDisplayName: string;
 	otherUsername: string;
+	otherPhotoURL?: string;
 }
 
 export function FriendRequestsScreen() {
@@ -61,6 +62,7 @@ export function FriendRequestsScreen() {
 					...f,
 					otherDisplayName: requester?.displayName ?? "Unknown",
 					otherUsername: requester?.username ?? "",
+					otherPhotoURL: requester?.photoURL,
 				};
 			}),
 		);
@@ -72,6 +74,7 @@ export function FriendRequestsScreen() {
 					...f,
 					otherDisplayName: receiver?.displayName ?? "Unknown",
 					otherUsername: receiver?.username ?? "",
+					otherPhotoURL: receiver?.photoURL,
 				};
 			}),
 		);
@@ -85,6 +88,7 @@ export function FriendRequestsScreen() {
 					...f,
 					otherDisplayName: friend?.displayName ?? "Unknown",
 					otherUsername: friend?.username ?? "",
+					otherPhotoURL: friend?.photoURL,
 				};
 			}),
 		);
@@ -186,7 +190,7 @@ export function FriendRequestsScreen() {
 				renderItem={({ item, section }) => (
 					<View className="flex-row justify-between items-center px-4 py-3">
 						<View className="flex-row items-center flex-1 mr-3">
-							<Avatar size={36} displayName={item.otherDisplayName} />
+							<Avatar size={36} displayName={item.otherDisplayName} photoURL={item.otherPhotoURL} />
 							<View className="ml-3">
 								<Text className="text-sm">
 									{item.otherDisplayName}{" "}
