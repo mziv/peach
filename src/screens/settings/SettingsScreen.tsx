@@ -198,11 +198,11 @@ export function SettingsScreen() {
                 <Text className="text-base text-gray-500 py-2 px-3">Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                className="bg-red-600 rounded-full px-5 py-2"
+                className="bg-red-600 rounded-full px-5 py-2 items-center justify-center"
                 onPress={handleReauthAndDelete}
                 disabled={deleting || !password}
               >
-                <Text className="text-white font-semibold">
+                <Text className="text-white font-semibold text-center">
                   {deleting ? "..." : "Delete"}
                 </Text>
               </TouchableOpacity>
