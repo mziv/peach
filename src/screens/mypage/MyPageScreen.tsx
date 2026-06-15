@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Ionicons } from "expo/node_modules/@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "../../config/firebase";
 import { useAuth } from "../../contexts/AuthContext";

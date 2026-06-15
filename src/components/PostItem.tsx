@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
-import { Ionicons } from "expo/node_modules/@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { relativeTime } from "../utils/relativeTime";
 
 interface PostItemProps {
