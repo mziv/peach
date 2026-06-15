@@ -13,6 +13,7 @@ import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "../../config/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { likePost, unlikePost, hasLiked } from "../../services/likes";
+import { markFriendViewed } from "../../services/viewedFriends";
 import { HomeStackParamList } from "../../navigation/HomeStack";
 import { Post } from "../../types";
 import Avatar from "../../components/Avatar";
@@ -69,6 +70,14 @@ export function FriendPageScreen() {
       }
     });
     return unsubscribe;
+  }, [friendUid, user]);
+
+  useEffect(() => {
+    if (user) {
+      markFriendViewed(user.uid, friendUid).catch(() => {
+        // A failed write just leaves the dot until the next successful view.
+      });
+    }
   }, [friendUid, user]);
 
   async function handleLikeToggle(postId: string) {
