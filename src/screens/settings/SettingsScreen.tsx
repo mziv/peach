@@ -114,23 +114,25 @@ export function SettingsScreen() {
         </Text>
         <View className="px-4">
           <Text className="text-sm text-gray-500 mb-1">Display name</Text>
-          <TextInput
-            className="bg-gray-50 rounded-lg px-4 py-3 text-base"
-            value={name}
-            onChangeText={setName}
-            placeholder="Your name"
-          />
-          <TouchableOpacity
-            className={`rounded-full px-5 py-2 mt-3 self-start ${
-              canSave ? "bg-peach" : "bg-gray-300"
-            }`}
-            onPress={handleSave}
-            disabled={!canSave}
-          >
-            <Text className="text-white font-semibold text-sm">
-              {saving ? "Saving..." : "Save"}
-            </Text>
-          </TouchableOpacity>
+          <View className="flex-row items-center">
+            <TextInput
+              className="flex-1 bg-gray-50 rounded-full px-4 py-3 text-base mr-2"
+              value={name}
+              onChangeText={setName}
+              placeholder="Your name"
+            />
+            <TouchableOpacity
+              className={`rounded-full px-5 py-2 ${
+                canSave ? "bg-peach" : "bg-gray-300"
+              }`}
+              onPress={handleSave}
+              disabled={!canSave}
+            >
+              <Text className="text-white font-semibold text-sm">
+                {saving ? "Saving..." : "Save"}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <View className="mt-5">
             <Text className="text-sm text-gray-500">Username</Text>
@@ -148,14 +150,14 @@ export function SettingsScreen() {
         </Text>
         <View className="px-4">
           <TouchableOpacity
-            className="rounded-lg border border-gray-200 px-4 py-3"
+            className="rounded-full border border-gray-200 px-4 py-3"
             onPress={handleSignOut}
             disabled={deleting}
           >
             <Text className="text-base text-center">Sign Out</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            className="rounded-lg border border-red-200 px-4 py-3 mt-3"
+            className="rounded-full border border-red-200 px-4 py-3 mt-3"
             onPress={confirmDelete}
             disabled={deleting}
           >
