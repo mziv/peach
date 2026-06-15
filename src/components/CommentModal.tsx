@@ -173,7 +173,7 @@ export default function CommentModal({
             className="flex-1"
             renderItem={({ item }) => (
               <View className="flex-row px-4 py-2">
-                <Avatar size={32} />
+                <Avatar size={32} displayName={item.authorUsername} />
                 <View className="ml-3 flex-1">
                   <Text className="text-sm font-semibold text-gray-500">
                     @{item.authorUsername}

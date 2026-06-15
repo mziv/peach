@@ -121,7 +121,7 @@ export function FriendPageScreen() {
             <Ionicons name="chevron-back" size={24} color="black" />
           </TouchableOpacity>
           <View className="flex-row items-center ml-2">
-            <Avatar size={32} />
+            <Avatar size={32} displayName={friendDisplayName} />
             <View className="ml-2">
               <Text className="text-base font-semibold">
                 {friendDisplayName}
