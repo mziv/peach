@@ -1,5 +1,6 @@
-import { addDoc, getDocs, updateDoc, deleteDoc } from "firebase/firestore";
+import { doc, setDoc, getDocs, updateDoc, deleteDoc } from "firebase/firestore";
 import {
+  pairId,
   sendFriendRequest,
   acceptFriendRequest,
   declineFriendRequest,
@@ -9,8 +10,9 @@ import {
 
 jest.mock("firebase/firestore", () => ({
   collection: jest.fn(() => "mock-collection-ref"),
-  doc: jest.fn(() => "mock-doc-ref"),
-  addDoc: jest.fn(),
+  doc: jest.fn((_db, _coll, id) => ({ id })),
+  getDoc: jest.fn(),
+  setDoc: jest.fn(),
   getDocs: jest.fn(),
   updateDoc: jest.fn(),
   deleteDoc: jest.fn(),
@@ -28,17 +30,30 @@ jest.mock("../../src/config/firebase", () => ({
 describe("friendships service", () => {
   beforeEach(() => jest.clearAllMocks());
 
+  describe("pairId", () => {
+    it("is deterministic regardless of argument order", () => {
+      expect(pairId("uid-1", "uid-2")).toBe("uid-1_uid-2");
+      expect(pairId("uid-2", "uid-1")).toBe("uid-1_uid-2");
+    });
+  });
+
   describe("sendFriendRequest", () => {
-    it("creates a friendship doc with pending status", async () => {
-      (addDoc as jest.Mock).mockResolvedValue({ id: "f-1" });
+    it("creates a friendship doc with pending status at the canonical pair id", async () => {
+      (setDoc as jest.Mock).mockResolvedValue(undefined);
 
-      await sendFriendRequest("uid-1", "uid-2");
+      await sendFriendRequest("uid-2", "uid-1");
 
-      expect(addDoc).toHaveBeenCalledWith(
+      // Doc id is the sorted pair, independent of requester/receiver order.
+      expect(doc).toHaveBeenCalledWith(
+        expect.anything(),
+        "friendships",
+        "uid-1_uid-2"
+      );
+      expect(setDoc).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({
-          requesterId: "uid-1",
-          receiverId: "uid-2",
+          requesterId: "uid-2",
+          receiverId: "uid-1",
           status: "pending",
         })
       );

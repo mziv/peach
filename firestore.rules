@@ -11,51 +11,89 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
-    // User profile docs: any signed-in user can read (search, friend pages);
-    // only the owner can write their own profile.
+    // Friendship docs use a deterministic id: the two uids sorted and joined,
+    // so the rules can look up "are these two users friends?" with a single
+    // get() (rules cannot run queries). See services/friendships.ts.
+    function pairId(a, b) {
+      return a < b ? a + '_' + b : b + '_' + a;
+    }
+
+    function friendshipPath(ownerUid) {
+      return /databases/$(database)/documents/friendships/$(pairId(request.auth.uid, ownerUid));
+    }
+
+    // True when the signed-in user and `ownerUid` have an accepted friendship.
+    function areFriends(ownerUid) {
+      return isSignedIn() &&
+        exists(friendshipPath(ownerUid)) &&
+        get(friendshipPath(ownerUid)).data.status == 'accepted';
+    }
+
+    // A signed-in user may read someone's content if it is their own or if the
+    // two are accepted friends.
+    function canViewContentOf(ownerUid) {
+      return isOwner(ownerUid) || areFriends(ownerUid);
+    }
+
+    // User profile docs are world-readable so that username search and the
+    // pre-auth sign-up uniqueness check (services/auth.ts) work without a
+    // session. Only the owner can write their own profile.
+    // NOTE: subcollections below do NOT inherit this; each sets its own rule.
     match /users/{uid} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isOwner(uid);
 
-      // Profile meta (last post text/time): readable by any signed-in user,
-      // writable only by the owner.
+      // Profile meta (last post text/time preview): readable by the owner and
+      // their friends (it embeds post content); writable only by the owner.
       match /meta/{metaId} {
-        allow read: if isSignedIn();
+        allow read: if canViewContentOf(uid);
         allow write: if isOwner(uid);
       }
 
-      // Posts: readable by any signed-in user. The owner can create, edit, and
-      // delete their own posts. Any signed-in user may update ONLY the
-      // likeCount / commentCount counters, because liking or commenting on a
-      // friend's post bumps those counters on the post doc itself
-      // (see services/likes.ts and services/comments.ts).
+      // Posts: readable by the owner and accepted friends. The owner creates
+      // and deletes their own posts. A friend may update ONLY the likeCount /
+      // commentCount counters, because liking or commenting bumps those on the
+      // post doc itself (see services/likes.ts and services/comments.ts).
+      // NOTE: counter values are not validated to be true +/-1 deltas; a
+      // friend could write an arbitrary number. Robustly enforcing this needs
+      // a Cloud Function. Accepted as a known limitation for now.
       match /posts/{postId} {
-        allow read: if isSignedIn();
+        allow read: if canViewContentOf(uid);
         allow create, delete: if isOwner(uid);
         allow update: if isOwner(uid) ||
-          (isSignedIn() &&
+          (areFriends(uid) &&
            request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['likeCount', 'commentCount']));
 
-        // Comments: any signed-in user may read and add comments. Only the
-        // comment's author may delete it (checked against the stored authorUid).
+        // Comments: readable by the owner and friends. A commenter may create a
+        // comment under their own identity (authorUid must be themselves). A
+        // comment can be removed by its author (deleteComment from the comment
+        // modal) or by the post owner. The post-owner path is what lets the
+        // owner-driven cascades succeed: deletePost (services/posts.ts) and
+        // account deletion (services/users.ts deleteAccountData) both wipe all
+        // comments under the user's posts, including comments authored by others.
         match /comments/{commentId} {
-          allow read: if isSignedIn();
-          allow create: if isSignedIn();
-          allow delete: if isSignedIn() &&
-            resource.data.authorUid == request.auth.uid;
+          allow read: if canViewContentOf(uid);
+          allow create: if canViewContentOf(uid) &&
+            request.resource.data.authorUid == request.auth.uid;
+          allow delete: if isOwner(uid) ||
+            (isSignedIn() && request.auth.uid == resource.data.authorUid);
         }
 
-        // Likes: readable by any signed-in user; each user manages only their
-        // own like doc (doc id == liker uid).
+        // Likes: readable by the owner and friends. The doc id is the liker's
+        // uid; a user manages only their own like. The post owner may also
+        // delete like docs under their posts, so the owner-driven cascades
+        // (deletePost in services/posts.ts and account deletion in
+        // services/users.ts) can remove friends' likes from the user's posts.
         match /likes/{likerUid} {
-          allow read: if isSignedIn();
-          allow write: if isOwner(likerUid);
+          allow read: if canViewContentOf(uid);
+          allow create, update: if isOwner(likerUid) && canViewContentOf(uid);
+          allow delete: if isOwner(likerUid) || isOwner(uid);
         }
       }
 
       // Viewed-friends read state: private to the owner. The doc id is the
-      // friend's uid; only the viewer can read or write their own history.
+      // friend's uid; only the viewer reads or writes their own history.
       match /viewedFriends/{friendUid} {
         allow read, write: if isOwner(uid);
       }
@@ -73,15 +111,26 @@ service cloud.firestore {
       }
     }
 
-    // Friendships: a signed-in user may read/write a friendship they are part
-    // of. Creating a request: the requester must be the signed-in user.
+    // Friendships: doc id must be pairId(requesterId, receiverId). A user may
+    // read a friendship they are part of. Creating a request: the requester is
+    // the signed-in user, the status starts as 'pending', the two users differ,
+    // and the doc id matches the canonical pair id. Only the receiver can
+    // accept (move to 'accepted'); either party may delete (decline / unfriend).
     match /friendships/{friendshipId} {
       allow read: if isSignedIn() &&
         (request.auth.uid == resource.data.requesterId ||
          request.auth.uid == resource.data.receiverId);
       allow create: if isSignedIn() &&
-        request.auth.uid == request.resource.data.requesterId;
-      allow update, delete: if isSignedIn() &&
+        request.auth.uid == request.resource.data.requesterId &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.requesterId != request.resource.data.receiverId &&
+        friendshipId == pairId(request.resource.data.requesterId,
+                               request.resource.data.receiverId);
+      allow update: if isSignedIn() &&
+        request.auth.uid == resource.data.receiverId &&
+        request.resource.data.requesterId == resource.data.requesterId &&
+        request.resource.data.receiverId == resource.data.receiverId;
+      allow delete: if isSignedIn() &&
         (request.auth.uid == resource.data.requesterId ||
          request.auth.uid == resource.data.receiverId);
     }
