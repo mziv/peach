@@ -150,6 +150,7 @@ export function SettingsScreen() {
           <TouchableOpacity
             className="rounded-lg border border-gray-200 px-4 py-3"
             onPress={handleSignOut}
+            disabled={deleting}
           >
             <Text className="text-base text-center">Sign Out</Text>
           </TouchableOpacity>
@@ -196,6 +197,7 @@ export function SettingsScreen() {
             <View className="flex-row justify-end gap-3 mt-4">
               <TouchableOpacity
                 onPress={() => {
+                  if (deleting) return;
                   setPwModalVisible(false);
                   setPassword("");
                 }}
