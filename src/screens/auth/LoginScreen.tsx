@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity } from "react-native";
+import { notify } from "../../utils/dialog";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import { AuthStackParamList } from "../../navigation/AuthStack";
@@ -15,14 +16,14 @@ export function LoginScreen() {
 
   async function handleLogin() {
     if (!email || !password) {
-      Alert.alert("Error", "Please fill in all fields.");
+      notify("Error", "Please fill in all fields.");
       return;
     }
     setLoading(true);
     try {
       await logIn(email, password);
     } catch (err: any) {
-      Alert.alert("Login Failed", err.message);
+      notify("Login Failed", err.message);
     } finally {
       setLoading(false);
     }

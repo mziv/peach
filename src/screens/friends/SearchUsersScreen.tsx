@@ -5,12 +5,12 @@ import {
   TextInput,
   FlatList,
   TouchableOpacity,
-  Alert,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../contexts/AuthContext";
+import { notify } from "../../utils/dialog";
 import { searchUsersByUsername } from "../../services/users";
 import {
   sendFriendRequest,
@@ -63,7 +63,7 @@ export function SearchUsersScreen() {
         )
       );
     } catch (err: any) {
-      Alert.alert("Error", err.message);
+      notify("Error", err.message);
     }
   }
 
