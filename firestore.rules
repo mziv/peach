@@ -111,15 +111,28 @@ service cloud.firestore {
       }
     }
 
-    // Friendships: doc id must be pairId(requesterId, receiverId). A user may
-    // read a friendship they are part of. Creating a request: the requester is
-    // the signed-in user, the status starts as 'pending', the two users differ,
-    // and the doc id matches the canonical pair id. Only the receiver can
-    // accept (move to 'accepted'); either party may delete (decline / unfriend).
+    // Friendships: doc id must be pairId(requesterId, receiverId). Creating a
+    // request: the requester is the signed-in user, the status starts as
+    // 'pending', the two users differ, and the doc id matches the canonical
+    // pair id. Only the receiver can accept (move to 'accepted'); either party
+    // may delete (decline / unfriend).
     match /friendships/{friendshipId} {
-      allow read: if isSignedIn() &&
-        (request.auth.uid == resource.data.requesterId ||
-         request.auth.uid == resource.data.receiverId);
+      function isParticipant() {
+        return isSignedIn() &&
+          (request.auth.uid == resource.data.requesterId ||
+           request.auth.uid == resource.data.receiverId);
+      }
+      // get by deterministic id: clients probe friendships/{pairId} to learn
+      // their relationship to another user (search, friend page). Allow it when
+      // the doc does NOT exist (resource == null → "no friendship", which leaks
+      // nothing) or when the caller is a participant. Without the null case,
+      // get() on a missing doc dereferences resource.data on null and is denied
+      // — that breaks user search for anyone you aren't already friends with.
+      allow get: if isSignedIn() && (resource == null || isParticipant());
+      // list/query: every returned doc must involve the caller. getFriendships
+      // / getPendingRequests / getOutgoingRequests all filter on
+      // requesterId/receiverId == own uid, so this never returns others' docs.
+      allow list: if isParticipant();
       allow create: if isSignedIn() &&
         request.auth.uid == request.resource.data.requesterId &&
         request.resource.data.status == 'pending' &&
@@ -130,9 +143,7 @@ service cloud.firestore {
         request.auth.uid == resource.data.receiverId &&
         request.resource.data.requesterId == resource.data.requesterId &&
         request.resource.data.receiverId == resource.data.receiverId;
-      allow delete: if isSignedIn() &&
-        (request.auth.uid == resource.data.requesterId ||
-         request.auth.uid == resource.data.receiverId);
+      allow delete: if isParticipant();
     }
   }
 }
