@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * Mobile Safari auto-zooms into any focused input whose font-size is under
+ * 16px. Forcing every input/textarea to 16px on the web build removes that
+ * trigger (pinch-zoom stays enabled). Native apps render no <input> elements,
+ * so this rule is a no-op there and their compact text-sm styling is kept.
+ */
+@layer base {
+  input,
+  textarea {
+    font-size: 16px !important;
+  }
+}

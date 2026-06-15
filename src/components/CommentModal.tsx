@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Animated,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "expo/node_modules/@expo/vector-icons";
 import {
@@ -39,6 +41,48 @@ export default function CommentModal({
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // Keep the modal mounted while the close animation plays out.
+  const [rendered, setRendered] = useState(visible);
+  // Slide distance for the panel; screen height guarantees it starts offscreen.
+  const slideDistance = Dimensions.get("window").height;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const panelTranslateY = useRef(new Animated.Value(slideDistance)).current;
+  const useNativeDriver = Platform.OS !== "web";
+
+  useEffect(() => {
+    if (visible) {
+      setRendered(true);
+      backdropOpacity.setValue(0);
+      panelTranslateY.setValue(slideDistance);
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver,
+        }),
+        Animated.timing(panelTranslateY, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver,
+        }),
+      ]).start();
+    } else if (rendered) {
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver,
+        }),
+        Animated.timing(panelTranslateY, {
+          toValue: slideDistance,
+          duration: 200,
+          useNativeDriver,
+        }),
+      ]).start(() => setRendered(false));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   useEffect(() => {
     if (!visible || !postOwnerUid || !postId) return;
@@ -81,20 +125,30 @@ export default function CommentModal({
 
   return (
     <Modal
-      visible={visible}
-      animationType="slide"
+      visible={rendered}
+      animationType="none"
       transparent={true}
       onRequestClose={onClose}
     >
       <View className="flex-1 justify-end">
-        <TouchableOpacity
+        {/* Backdrop: fades in place, independent of the sliding panel */}
+        <Animated.View
           className="absolute inset-0 bg-black/40"
-          activeOpacity={1}
-          onPress={onClose}
-        />
+          style={{ opacity: backdropOpacity }}
+        >
+          <TouchableOpacity
+            className="flex-1"
+            activeOpacity={1}
+            onPress={onClose}
+          />
+        </Animated.View>
+        <Animated.View
+          className="flex-[0.6]"
+          style={{ transform: [{ translateY: panelTranslateY }] }}
+        >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
-          className="flex-[0.6] bg-white rounded-t-2xl"
+          className="flex-1 bg-white rounded-t-2xl"
         >
           {/* Title bar */}
           <View className="flex-row justify-between items-center px-4 py-3 border-b border-gray-100">
@@ -142,6 +196,7 @@ export default function CommentModal({
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
+        </Animated.View>
       </View>
     </Modal>
   );
