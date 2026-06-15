@@ -32,6 +32,12 @@ jobs:
 
       - run: npx expo export --platform web
 
+      # Expo's web export only emits a favicon <link>; inject the apple-touch-icon
+      # link so iOS uses public/apple-touch-icon.png for home-screen bookmarks.
+      # Runs before the 404 copy so 404.html inherits the same <head>.
+      - name: Inject apple-touch-icon link
+        run: sed -i 's#</head>#<link rel="apple-touch-icon" href="/peach/apple-touch-icon.png" /></head>#' dist/index.html
+
       - name: Add 404.html for SPA routing
         run: cp dist/index.html dist/404.html
 
