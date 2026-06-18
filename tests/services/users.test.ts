@@ -245,7 +245,7 @@ describe("users service", () => {
       });
     });
 
-    it("constrains the longer edge to 512px (landscape → width)", async () => {
+    it("constrains the longer edge to 128px (landscape → width)", async () => {
       const { context } = mockManipulator("file:///resized.jpg");
 
       await uploadProfilePhoto("uid-1", "file:///tmp/pic.jpg", {
@@ -253,10 +253,10 @@ describe("users service", () => {
         height: 1000,
       });
 
-      expect(context.resize).toHaveBeenCalledWith({ width: 512 });
+      expect(context.resize).toHaveBeenCalledWith({ width: 128 });
     });
 
-    it("constrains the longer edge to 512px (portrait → height)", async () => {
+    it("constrains the longer edge to 128px (portrait → height)", async () => {
       const { context } = mockManipulator("file:///resized.jpg");
 
       await uploadProfilePhoto("uid-1", "file:///tmp/pic.jpg", {
@@ -264,15 +264,15 @@ describe("users service", () => {
         height: 2000,
       });
 
-      expect(context.resize).toHaveBeenCalledWith({ height: 512 });
+      expect(context.resize).toHaveBeenCalledWith({ height: 128 });
     });
 
-    it("does not upscale an image already within 512px", async () => {
+    it("does not upscale an image already within 128px", async () => {
       const { context } = mockManipulator("file:///resized.jpg");
 
       await uploadProfilePhoto("uid-1", "file:///tmp/pic.jpg", {
-        width: 300,
-        height: 200,
+        width: 100,
+        height: 80,
       });
 
       expect(context.resize).not.toHaveBeenCalled();
@@ -283,7 +283,7 @@ describe("users service", () => {
 
       await uploadProfilePhoto("uid-1", "file:///tmp/pic.jpg");
 
-      expect(context.resize).toHaveBeenCalledWith({ width: 512 });
+      expect(context.resize).toHaveBeenCalledWith({ width: 128 });
     });
   });
 
