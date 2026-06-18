@@ -17,10 +17,11 @@ import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { db, storage } from "../config/firebase";
 import { User } from "../types";
 
-// Avatars never display larger than a list row / profile header, so cap the
-// longer edge here. This keeps stored files small (~50–150 KB) and — crucially —
-// compresses on web too, where the picker's quality/aspect options are ignored.
-const MAX_AVATAR_EDGE = 512;
+// Avatars never display larger than a ~40px list row / profile header, so even
+// on a 3x-density screen ~128px is plenty (40 × 3 = 120 physical px). Capping the
+// longer edge here keeps stored files tiny (~10–30 KB) — so feeds download far
+// less — and compresses on web too, where the picker's quality options are ignored.
+const MAX_AVATAR_EDGE = 128;
 
 // Picks the resize action that constrains the image's longer edge to
 // MAX_AVATAR_EDGE while preserving aspect ratio. Returns null when the image is
