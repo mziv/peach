@@ -58,6 +58,7 @@ export function MyPageScreen() {
         createdAt: d.data().createdAt?.toDate() ?? new Date(),
         commentCount: d.data().commentCount ?? 0,
         likeCount: d.data().likeCount ?? 0,
+        photoURLs: d.data().photoURLs ?? [],
       }));
       setPosts(postList);
       setLoading(false);

@@ -70,6 +70,32 @@ describe("posts service", () => {
       expect(posts[0].postId).toBe("post-2");
       expect(posts[1].postId).toBe("post-1");
     });
+
+    it("maps photoURLs when present and defaults to [] when absent", async () => {
+      const mockDocs = [
+        {
+          id: "post-a",
+          data: () => ({
+            text: "with photos",
+            createdAt: { toDate: () => new Date("2026-01-03") },
+            photoURLs: ["https://s/0", "https://s/1"],
+          }),
+        },
+        {
+          id: "post-b",
+          data: () => ({
+            text: "no photos",
+            createdAt: { toDate: () => new Date("2026-01-02") },
+          }),
+        },
+      ];
+      (getDocs as jest.Mock).mockResolvedValue({ docs: mockDocs });
+
+      const posts = await getPostsByUser("uid-1");
+
+      expect(posts[0].photoURLs).toEqual(["https://s/0", "https://s/1"]);
+      expect(posts[1].photoURLs).toEqual([]);
+    });
   });
 
   describe("getPost", () => {
