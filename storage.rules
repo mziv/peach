@@ -20,5 +20,18 @@ service firebase.storage {
             || (request.resource.contentType.matches('image/.*')
                 && request.resource.size < 5 * 1024 * 1024));
     }
+
+    // Post photos live at posts/{uid}/{postId}/{index} — the {uid} segment is
+    // the post owner (see services/posts.ts uploadPostPhotos). Anyone signed in
+    // may read them (friends view each other's posts); only the owner may write,
+    // and uploads must be a reasonably-sized image.
+    match /posts/{uid}/{postId}/{file} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
+        && request.auth.uid == uid
+        && (request.resource == null
+            || (request.resource.contentType.matches('image/.*')
+                && request.resource.size < 5 * 1024 * 1024));
+    }
   }
 }
