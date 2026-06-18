@@ -9,7 +9,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Animated,
-  Dimensions,
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -51,42 +50,25 @@ export default function CommentModal({
 
   // Keep the modal mounted while the close animation plays out.
   const [rendered, setRendered] = useState(visible);
-  // Slide distance for the panel; screen height guarantees it starts offscreen.
-  const slideDistance = Dimensions.get("window").height;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const panelTranslateY = useRef(new Animated.Value(slideDistance)).current;
+  // A single opacity value fades the backdrop and the centered card together.
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
   const useNativeDriver = Platform.OS !== "web";
 
   useEffect(() => {
     if (visible) {
       setRendered(true);
-      backdropOpacity.setValue(0);
-      panelTranslateY.setValue(slideDistance);
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver,
-        }),
-        Animated.timing(panelTranslateY, {
-          toValue: 0,
-          duration: 250,
-          useNativeDriver,
-        }),
-      ]).start();
+      overlayOpacity.setValue(0);
+      Animated.timing(overlayOpacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver,
+      }).start();
     } else if (rendered) {
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver,
-        }),
-        Animated.timing(panelTranslateY, {
-          toValue: slideDistance,
-          duration: 200,
-          useNativeDriver,
-        }),
-      ]).start(() => setRendered(false));
+      Animated.timing(overlayOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver,
+      }).start(() => setRendered(false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
@@ -156,15 +138,15 @@ export default function CommentModal({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View className="flex-1 justify-end">
-        {/* Backdrop: fades in place, independent of the sliding panel.
+      <View className="flex-1 justify-center items-center">
+        {/* Backdrop: full-screen dim that fades with the card.
             NativeWind's className isn't applied to Animated.View, so the
             background and fill are set via style. */}
         <Animated.View
           style={{
             ...StyleSheet.absoluteFillObject,
             backgroundColor: "rgba(0, 0, 0, 0.4)",
-            opacity: backdropOpacity,
+            opacity: overlayOpacity,
             // Mobile Safari won't promote this full-screen fade to its own GPU
             // layer on its own, so it repaints every frame. Hint it to. (web only)
             ...(Platform.OS === "web" ? ({ willChange: "opacity" } as any) : null),
@@ -176,18 +158,19 @@ export default function CommentModal({
             onPress={onClose}
           />
         </Animated.View>
+        {/* Centered card: fades in/out with the backdrop, no slide.
+            Fixed height (not maxHeight) so the card is a constant size
+            regardless of how many comments there are. */}
         <Animated.View
           style={{
-            height: "60%",
-            transform: [{ translateY: panelTranslateY }],
-            // Same layer-promotion hint for the sliding panel so Safari
-            // composites the transform instead of repainting the subtree. (web only)
-            ...(Platform.OS === "web" ? ({ willChange: "transform" } as any) : null),
+            width: "88%",
+            height: "75%",
+            opacity: overlayOpacity,
           }}
         >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
-          className="flex-1 bg-white rounded-t-2xl"
+          className="flex-1 bg-white rounded-2xl overflow-hidden"
         >
           {/* Title bar */}
           <View className="flex-row justify-between items-center px-4 py-3 border-b border-gray-100">
