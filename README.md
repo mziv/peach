@@ -58,6 +58,11 @@ for the detailed design and the decisions behind it.
 - [x] Pick a photo → upload → store `photoURL` on the user doc
 - [x] `Avatar` renders `photoURL` (initials fallback)
 - [x] Photo picker UI in Settings
+- [x] Storage security rules: owner-only avatar writes, signed-in reads
+- [x] Storage CORS policy so web uploads work
+
+> Storage rules live in `storage.rules` (wired for deploy via `firebase.json`).
+> The bucket also needs a one-time CORS policy — see Setup below.
 
 ### Out of scope (for now)
 
