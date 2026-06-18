@@ -229,6 +229,7 @@ export function MyPageScreen() {
                 postText: item.text,
               })
             }
+            photoURLs={item.photoURLs}
             onDeletePress={() => handleDeletePost(item.postId)}
           />
         )}
