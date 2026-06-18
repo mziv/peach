@@ -10,7 +10,7 @@ import {
   writeBatch,
   updateDoc,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage } from "../config/firebase";
 import { Post } from "../types";
 
@@ -71,6 +71,18 @@ export async function getPost(
 }
 
 export async function deletePost(uid: string, postId: string): Promise<void> {
+  // Remove Storage photos first (Firestore batches can't touch Storage).
+  const postSnap = await getDoc(doc(db, "users", uid, "posts", postId));
+  const photoURLs: string[] = postSnap.data()?.photoURLs ?? [];
+  for (let i = 0; i < photoURLs.length; i++) {
+    try {
+      await deleteObject(ref(storage, `posts/${uid}/${postId}/${i}`));
+    } catch (err: any) {
+      // Tolerate a missing object (e.g. a partial upload); re-throw the rest.
+      if (err?.code !== "storage/object-not-found") throw err;
+    }
+  }
+
   const batch = writeBatch(db);
 
   // Firestore does not cascade subcollection deletes, so remove the post's

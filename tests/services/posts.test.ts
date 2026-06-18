@@ -7,7 +7,7 @@ import {
   uploadPostPhotos,
   updatePost,
 } from "../../src/services/posts";
-import { uploadBytes } from "firebase/storage";
+import { uploadBytes, deleteObject } from "firebase/storage";
 
 jest.mock("firebase/firestore", () => ({
   collection: jest.fn(),
@@ -26,6 +26,7 @@ jest.mock("firebase/storage", () => ({
   ref: jest.fn((_s, path) => ({ path })),
   uploadBytes: jest.fn().mockResolvedValue(undefined),
   getDownloadURL: jest.fn((r) => Promise.resolve(`https://dl/${r.path}`)),
+  deleteObject: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock("../../src/config/firebase", () => ({
@@ -149,6 +150,7 @@ describe("posts service", () => {
     it("deletes the post and all of its comments and likes in a batch", async () => {
       const mockBatch = makeBatch();
       (writeBatch as jest.Mock).mockReturnValue(mockBatch);
+      (getDoc as jest.Mock).mockResolvedValue({ data: () => ({}) });
       (getDocs as jest.Mock)
         // comments subcollection
         .mockResolvedValueOnce({ docs: [{ ref: "c-1" }, { ref: "c-2" }] })
@@ -167,6 +169,7 @@ describe("posts service", () => {
     it("recomputes meta to the next-most-recent post", async () => {
       const mockBatch = makeBatch();
       (writeBatch as jest.Mock).mockReturnValue(mockBatch);
+      (getDoc as jest.Mock).mockResolvedValue({ data: () => ({}) });
       (getDocs as jest.Mock)
         .mockResolvedValueOnce({ docs: [] }) // comments
         .mockResolvedValueOnce({ docs: [] }) // likes
@@ -192,6 +195,7 @@ describe("posts service", () => {
     it("clears meta when no posts remain", async () => {
       const mockBatch = makeBatch();
       (writeBatch as jest.Mock).mockReturnValue(mockBatch);
+      (getDoc as jest.Mock).mockResolvedValue({ data: () => ({}) });
       (getDocs as jest.Mock)
         .mockResolvedValueOnce({ docs: [] }) // comments
         .mockResolvedValueOnce({ docs: [] }) // likes
@@ -206,6 +210,25 @@ describe("posts service", () => {
         { lastPostText: "", lastPostAt: null },
         { merge: true }
       );
+    });
+
+    it("deletes each Storage photo for a post that has photos", async () => {
+      const mockBatch = makeBatch();
+      (writeBatch as jest.Mock).mockReturnValue(mockBatch);
+      (getDoc as jest.Mock).mockResolvedValue({
+        exists: () => true,
+        data: () => ({ photoURLs: ["https://dl/0", "https://dl/1"] }),
+      });
+      (getDocs as jest.Mock)
+        .mockResolvedValueOnce({ docs: [] }) // comments
+        .mockResolvedValueOnce({ docs: [] }) // likes
+        .mockResolvedValueOnce({
+          docs: [{ id: "post-1", data: () => ({ text: "deleted" }) }],
+        });
+
+      await deletePost("uid-1", "post-1");
+
+      expect(deleteObject).toHaveBeenCalledTimes(2);
     });
   });
 });
