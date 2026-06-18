@@ -16,6 +16,7 @@ import { getFriendships } from "../../services/friendships";
 import { getViewedMap, hasNewActivity } from "../../services/viewedFriends";
 import { HomeStackParamList } from "../../navigation/HomeStack";
 import UserPreview from "../../components/UserPreview";
+import { useWebPullToRefresh } from "../../hooks/useWebPullToRefresh";
 
 type HomeNav = NativeStackNavigationProp<HomeStackParamList, "Home">;
 
@@ -43,6 +44,7 @@ export function HomeScreen() {
 	});
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
+	const listRef = useRef<FlatList>(null);
 	// Friends opened this session, with the local time we opened them. Used to
 	// clear the dot instantly on tap and to keep it cleared while the
 	// server-side `lastViewedAt` write propagates — without permanently
@@ -131,6 +133,10 @@ export function HomeScreen() {
 		}
 	}, [loadData]);
 
+	// react-native-web ignores RefreshControl's gesture, so wire pull-to-refresh
+	// on web (e.g. iPhone Safari) directly to the FlatList's scroll node.
+	useWebPullToRefresh(listRef, onRefresh);
+
 	function handleFriendPress(item: FriendWithMeta) {
 		// Opening the friend's page marks it viewed: record the local time and
 		// clear the dot now so it doesn't linger while the page loads and the
@@ -159,6 +165,7 @@ export function HomeScreen() {
 	return (
 		<View className="flex-1 bg-white">
 			<FlatList
+				ref={listRef}
 				data={friends}
 				keyExtractor={(item) => item.uid}
 				refreshControl={

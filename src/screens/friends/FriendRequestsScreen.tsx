@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
 	View,
 	Text,
@@ -23,6 +23,7 @@ import { getUserByUid } from "../../services/users";
 import { FriendsStackParamList } from "../../navigation/FriendsStack";
 import { Friendship } from "../../types";
 import Avatar from "../../components/Avatar";
+import { useWebPullToRefresh } from "../../hooks/useWebPullToRefresh";
 
 type FriendsNav = NativeStackNavigationProp<
 	FriendsStackParamList,
@@ -42,6 +43,7 @@ export function FriendRequestsScreen() {
 	const [friends, setFriends] = useState<RequestWithName[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
+	const listRef = useRef<SectionList>(null);
 
 	// `silent` skips the full-screen loading spinner so a pull-to-refresh keeps
 	// the existing list visible while the native refresh indicator shows.
@@ -108,6 +110,10 @@ export function FriendRequestsScreen() {
 		}
 	}
 
+	// react-native-web ignores RefreshControl's gesture, so wire pull-to-refresh
+	// on web (e.g. iPhone Safari) directly to the SectionList's scroll node.
+	useWebPullToRefresh(listRef, onRefresh);
+
 	async function handleAccept(friendshipId: string) {
 		try {
 			await acceptFriendRequest(friendshipId);
@@ -173,6 +179,7 @@ export function FriendRequestsScreen() {
 			</View>
 
 			<SectionList
+				ref={listRef}
 				sections={sections}
 				keyExtractor={(item) => item.friendshipId}
 				refreshControl={
