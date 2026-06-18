@@ -19,6 +19,9 @@ export default function ActivityRow({ notification, onPress }: ActivityRowProps)
     notification.type === "comment"
       ? notification.commentText ?? ""
       : notification.postTextPreview;
+  // Comment text is darker than a like's post preview so the two are visually distinct.
+  const previewColor =
+    notification.type === "comment" ? "text-gray-800" : "text-gray-400";
 
   const content = (
     <>
@@ -37,7 +40,7 @@ export default function ActivityRow({ notification, onPress }: ActivityRowProps)
           </Text>
         </View>
         {preview ? (
-          <Text className="text-sm text-gray-400 mt-1" numberOfLines={1}>
+          <Text className={`text-sm ${previewColor} mt-1`} numberOfLines={1}>
             {preview}
           </Text>
         ) : null}
