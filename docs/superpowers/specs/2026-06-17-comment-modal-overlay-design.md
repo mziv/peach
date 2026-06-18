@@ -39,10 +39,11 @@ auto-open behavior.
 
 - **Container:** change the root overlay `View` from `flex-1 justify-end` to
   `flex-1 justify-center items-center` so the card floats in the screen center.
-- **Card:** ~88% width, `maxHeight: "75%"`, rounded on all corners
-  (`rounded-2xl` instead of `rounded-t-2xl`). Keeps the same three internal
-  sections in order: title bar → scrollable `FlatList` of comments → bottom
-  input row. The `FlatList` continues to flex and scroll inside the capped-height
+- **Card:** ~88% width, fixed `height: "75%"`, rounded on all corners
+  (`rounded-2xl` instead of `rounded-t-2xl`). Fixed height (not `maxHeight`) so
+  the card is a constant size regardless of comment count. Keeps the same three
+  internal sections in order: title bar → scrollable `FlatList` of comments →
+  bottom input row. The `FlatList` flexes and scrolls inside the fixed-height
   card.
 
 ### Animation (fade only)

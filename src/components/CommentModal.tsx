@@ -158,11 +158,13 @@ export default function CommentModal({
             onPress={onClose}
           />
         </Animated.View>
-        {/* Centered card: fades in/out with the backdrop, no slide. */}
+        {/* Centered card: fades in/out with the backdrop, no slide.
+            Fixed height (not maxHeight) so the card is a constant size
+            regardless of how many comments there are. */}
         <Animated.View
           style={{
             width: "88%",
-            maxHeight: "75%",
+            height: "75%",
             opacity: overlayOpacity,
           }}
         >
