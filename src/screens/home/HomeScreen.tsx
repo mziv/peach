@@ -74,40 +74,47 @@ export function HomeScreen() {
 			f.requesterId === user.uid ? f.receiverId : f.requesterId,
 		);
 
-		const friendsWithMeta: FriendWithMeta[] = [];
-		for (const friendUid of friendUids) {
-			const userSnap = await getDoc(doc(db, "users", friendUid));
-			const metaSnap = await getDoc(
-				doc(db, "users", friendUid, "meta", "meta"),
-			);
+		// Fetch every friend's user + meta docs concurrently rather than
+		// serially. Each friend's two reads run in parallel, and all friends
+		// are fetched at once, turning ~2N sequential round-trips into one
+		// batch. The final list is sorted below, so fetch order doesn't matter.
+		const friendsWithMeta = (
+			await Promise.all(
+				friendUids.map(async (friendUid): Promise<FriendWithMeta | null> => {
+					const [userSnap, metaSnap] = await Promise.all([
+						getDoc(doc(db, "users", friendUid)),
+						getDoc(doc(db, "users", friendUid, "meta", "meta")),
+					]);
 
-			if (userSnap.exists()) {
-				const userData = userSnap.data();
-				const metaData = metaSnap.exists() ? metaSnap.data() : null;
-				const friendLastPostAt = metaData?.lastPostAt?.toDate() ?? null;
-				// Use whichever view is more recent: the server-recorded
-				// `lastViewedAt` or an optimistic local stamp from tapping
-				// the friend this session (covers the propagation gap).
-				let effectiveViewed = viewedMap[friendUid];
-				const localViewed = viewedThisSession.current.get(friendUid);
-				if (
-					localViewed &&
-					(!(effectiveViewed instanceof Date) ||
-						localViewed > effectiveViewed)
-				) {
-					effectiveViewed = localViewed;
-				}
-				friendsWithMeta.push({
-					uid: friendUid,
-					displayName: userData.displayName,
-					username: userData.username,
-					photoURL: userData.photoURL,
-					lastPostText: metaData?.lastPostText ?? "",
-					lastPostAt: friendLastPostAt,
-					hasNewActivity: hasNewActivity(friendLastPostAt, effectiveViewed),
-				});
-			}
-		}
+					if (!userSnap.exists()) return null;
+
+					const userData = userSnap.data();
+					const metaData = metaSnap.exists() ? metaSnap.data() : null;
+					const friendLastPostAt = metaData?.lastPostAt?.toDate() ?? null;
+					// Use whichever view is more recent: the server-recorded
+					// `lastViewedAt` or an optimistic local stamp from tapping
+					// the friend this session (covers the propagation gap).
+					let effectiveViewed = viewedMap[friendUid];
+					const localViewed = viewedThisSession.current.get(friendUid);
+					if (
+						localViewed &&
+						(!(effectiveViewed instanceof Date) ||
+							localViewed > effectiveViewed)
+					) {
+						effectiveViewed = localViewed;
+					}
+					return {
+						uid: friendUid,
+						displayName: userData.displayName,
+						username: userData.username,
+						photoURL: userData.photoURL,
+						lastPostText: metaData?.lastPostText ?? "",
+						lastPostAt: friendLastPostAt,
+						hasNewActivity: hasNewActivity(friendLastPostAt, effectiveViewed),
+					};
+				}),
+			)
+		).filter((f): f is FriendWithMeta => f !== null);
 
 		friendsWithMeta.sort((a, b) => {
 			if (!a.lastPostAt && !b.lastPostAt) return 0;
