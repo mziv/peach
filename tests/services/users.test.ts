@@ -1,5 +1,6 @@
 import { doc, getDoc, getDocs, updateDoc, where, writeBatch } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import {
   getUserByUid,
   searchUsersByUsername,
@@ -35,6 +36,24 @@ jest.mock("../../src/config/firebase", () => ({
   db: {},
   storage: {},
 }));
+
+jest.mock("expo-image-manipulator", () => ({
+  ImageManipulator: { manipulate: jest.fn() },
+  SaveFormat: { JPEG: "jpeg" },
+}));
+
+// Builds the chained manipulate(uri).resize(...).renderAsync().saveAsync(...)
+// mock, with saveAsync resolving to the given resized URI.
+function mockManipulator(resizedUri: string) {
+  const saveAsync = jest.fn().mockResolvedValue({ uri: resizedUri });
+  const context: any = {
+    resize: jest.fn(),
+    renderAsync: jest.fn().mockResolvedValue({ saveAsync }),
+  };
+  context.resize.mockReturnValue(context);
+  (ImageManipulator.manipulate as jest.Mock).mockReturnValue(context);
+  return { context, saveAsync };
+}
 
 describe("users service", () => {
   beforeEach(() => {
@@ -188,14 +207,19 @@ describe("users service", () => {
   });
 
   describe("uploadProfilePhoto", () => {
-    it("uploads the blob to avatars/{uid}, sets photoURL, and returns the URL", async () => {
+    it("uploads the resized blob to avatars/{uid}, sets photoURL, and returns the URL", async () => {
       (getDownloadURL as jest.Mock).mockResolvedValue("https://cdn/avatar.jpg");
       (uploadBytes as jest.Mock).mockResolvedValue(undefined);
       (updateDoc as jest.Mock).mockResolvedValue(undefined);
+      mockManipulator("file:///resized.jpg");
 
-      const url = await uploadProfilePhoto("uid-1", "file:///tmp/pic.jpg");
+      const url = await uploadProfilePhoto("uid-1", "file:///tmp/pic.jpg", {
+        width: 800,
+        height: 800,
+      });
 
-      expect(global.fetch).toHaveBeenCalledWith("file:///tmp/pic.jpg");
+      // The resized file is fetched and uploaded, not the original.
+      expect(global.fetch).toHaveBeenCalledWith("file:///resized.jpg");
       expect(ref).toHaveBeenCalledWith(expect.anything(), "avatars/uid-1");
       expect(uploadBytes).toHaveBeenCalledWith(expect.anything(), "mock-blob", {
         contentType: "image/jpeg",
@@ -204,6 +228,62 @@ describe("users service", () => {
         photoURL: "https://cdn/avatar.jpg",
       });
       expect(url).toBe("https://cdn/avatar.jpg");
+    });
+
+    it("re-encodes to JPEG at quality 0.7", async () => {
+      const { saveAsync } = mockManipulator("file:///resized.jpg");
+
+      await uploadProfilePhoto("uid-1", "file:///tmp/pic.jpg", {
+        width: 800,
+        height: 800,
+      });
+
+      expect(ImageManipulator.manipulate).toHaveBeenCalledWith("file:///tmp/pic.jpg");
+      expect(saveAsync).toHaveBeenCalledWith({
+        compress: 0.7,
+        format: SaveFormat.JPEG,
+      });
+    });
+
+    it("constrains the longer edge to 512px (landscape → width)", async () => {
+      const { context } = mockManipulator("file:///resized.jpg");
+
+      await uploadProfilePhoto("uid-1", "file:///tmp/pic.jpg", {
+        width: 2000,
+        height: 1000,
+      });
+
+      expect(context.resize).toHaveBeenCalledWith({ width: 512 });
+    });
+
+    it("constrains the longer edge to 512px (portrait → height)", async () => {
+      const { context } = mockManipulator("file:///resized.jpg");
+
+      await uploadProfilePhoto("uid-1", "file:///tmp/pic.jpg", {
+        width: 1000,
+        height: 2000,
+      });
+
+      expect(context.resize).toHaveBeenCalledWith({ height: 512 });
+    });
+
+    it("does not upscale an image already within 512px", async () => {
+      const { context } = mockManipulator("file:///resized.jpg");
+
+      await uploadProfilePhoto("uid-1", "file:///tmp/pic.jpg", {
+        width: 300,
+        height: 200,
+      });
+
+      expect(context.resize).not.toHaveBeenCalled();
+    });
+
+    it("falls back to constraining width when dimensions are unknown", async () => {
+      const { context } = mockManipulator("file:///resized.jpg");
+
+      await uploadProfilePhoto("uid-1", "file:///tmp/pic.jpg");
+
+      expect(context.resize).toHaveBeenCalledWith({ width: 512 });
     });
   });
 

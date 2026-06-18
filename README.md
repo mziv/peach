@@ -60,6 +60,7 @@ for the detailed design and the decisions behind it.
 - [x] Photo picker UI in Settings
 - [x] Storage security rules: owner-only avatar writes, signed-in reads
 - [x] Storage CORS policy so web uploads work
+- [x] Downscale to 512px / JPEG q0.7 before upload (native + web)
 
 > Storage rules live in `storage.rules` (wired for deploy via `firebase.json`).
 > The bucket also needs a one-time CORS policy — see Setup below.

@@ -132,7 +132,11 @@ export function SettingsScreen() {
       if (result.canceled || !user) return;
       setPhotoStatus("uploading");
       try {
-        await uploadProfilePhoto(user.uid, result.assets[0].uri);
+        const asset = result.assets[0];
+        await uploadProfilePhoto(user.uid, asset.uri, {
+          width: asset.width,
+          height: asset.height,
+        });
         await refreshUser();
         setPhotoModalVisible(false);
       } catch (err: any) {
