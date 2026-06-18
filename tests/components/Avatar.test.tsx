@@ -1,4 +1,5 @@
 import React from "react";
+import { Image } from "react-native";
 import { render } from "@testing-library/react-native";
 import Avatar from "../../src/components/Avatar";
 import { avatarColor } from "../../src/utils/avatar";
@@ -30,10 +31,19 @@ describe("Avatar", () => {
     expect(backgroundColor).toBe(avatarColor("Maya Ziv"));
   });
 
-  it("still shows initials when photoURL is provided (photos deferred to Tier 3)", () => {
-    const { getByText } = render(
-      <Avatar displayName="Maya Ziv" photoURL="https://example.com/p.jpg" />
+  it("renders the photo image when photoURL is provided", () => {
+    const photoURL = "https://example.com/p.jpg";
+    const { UNSAFE_getByType, queryByText } = render(
+      <Avatar displayName="Maya Ziv" photoURL={photoURL} />
     );
+    const img = UNSAFE_getByType(Image);
+    expect(img.props.source).toEqual({ uri: photoURL });
+    // Initials must NOT render once a photo is present.
+    expect(queryByText("MZ")).toBeNull();
+  });
+
+  it("renders initials when no photoURL is provided", () => {
+    const { getByText } = render(<Avatar displayName="Maya Ziv" />);
     expect(getByText("MZ")).toBeTruthy();
   });
 });

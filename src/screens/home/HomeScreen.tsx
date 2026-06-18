@@ -24,6 +24,7 @@ interface FriendWithMeta {
 	uid: string;
 	displayName: string;
 	username: string;
+	photoURL?: string;
 	lastPostText: string;
 	lastPostAt: Date | null;
 	hasNewActivity: boolean;
@@ -100,6 +101,7 @@ export function HomeScreen() {
 					uid: friendUid,
 					displayName: userData.displayName,
 					username: userData.username,
+					photoURL: userData.photoURL,
 					lastPostText: metaData?.lastPostText ?? "",
 					lastPostAt: friendLastPostAt,
 					hasNewActivity: hasNewActivity(friendLastPostAt, effectiveViewed),
@@ -151,6 +153,7 @@ export function HomeScreen() {
 			friendUid: item.uid,
 			friendDisplayName: item.displayName,
 			friendUsername: item.username,
+			friendPhotoURL: item.photoURL,
 		});
 	}
 
@@ -177,6 +180,7 @@ export function HomeScreen() {
 						<UserPreview
 							displayName={user?.displayName ?? ""}
 							username={user?.username ?? ""}
+							photoURL={user?.photoURL}
 							previewText={selfMeta.lastPostText || "No posts yet"}
 							timestamp={selfMeta.lastPostAt}
 							onPress={() => navigation.navigate("MyPage")}
@@ -196,6 +200,7 @@ export function HomeScreen() {
 				renderItem={({ item }) => (
 					<UserPreview
 						displayName={item.displayName}
+						photoURL={item.photoURL}
 						username={item.username}
 						previewText={item.lastPostText || "No posts yet"}
 						timestamp={item.lastPostAt}

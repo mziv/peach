@@ -35,7 +35,7 @@ export function FriendPageScreen() {
   const route = useRoute<FriendPageRoute>();
   const navigation = useNavigation<FriendPageNav>();
   const { user } = useAuth();
-  const { friendUid, friendDisplayName, friendUsername } = route.params;
+  const { friendUid, friendDisplayName, friendUsername, friendPhotoURL } = route.params;
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
@@ -146,7 +146,7 @@ export function FriendPageScreen() {
             <Ionicons name="chevron-back" size={24} color="black" />
           </TouchableOpacity>
           <View className="flex-row items-center ml-2">
-            <Avatar size={32} displayName={friendDisplayName} />
+            <Avatar size={32} displayName={friendDisplayName} photoURL={friendPhotoURL} />
             <View className="ml-2">
               <Text className="text-base font-semibold">
                 {friendDisplayName}

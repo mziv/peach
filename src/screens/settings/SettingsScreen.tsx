@@ -1,19 +1,22 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   Modal,
+  Platform,
   ScrollView,
+  Image,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../../contexts/AuthContext";
 import { confirmDestructive, notify } from "../../utils/dialog";
 import { logOut, reauthenticate, deleteAuthAccount } from "../../services/auth";
-import { updateDisplayName, deleteAccountData } from "../../services/users";
+import { updateDisplayName, deleteAccountData, uploadProfilePhoto, removeProfilePhoto } from "../../services/users";
 import { HomeStackParamList } from "../../navigation/HomeStack";
 
 type SettingsNav = NativeStackNavigationProp<HomeStackParamList, "Settings">;
@@ -26,6 +29,18 @@ export function SettingsScreen() {
   const [deleting, setDeleting] = useState(false);
   const [pwModalVisible, setPwModalVisible] = useState(false);
   const [password, setPassword] = useState("");
+  const [photoStatus, setPhotoStatus] = useState<
+    "idle" | "uploading" | "removing"
+  >("idle");
+  const photoBusy = photoStatus !== "idle";
+  const [photoModalVisible, setPhotoModalVisible] = useState(false);
+  // Shown inline in the photo modal. We can't use Alert for photo feedback:
+  // react-native-web's Alert.alert is a no-op, so errors would be invisible
+  // on web (the same reason the chooser itself is a Modal, not an action sheet).
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  // Guards the whole pick flow (permission + picker) against re-entry, since
+  // photoStatus only flips once an upload actually starts.
+  const pickerActiveRef = useRef(false);
 
   const trimmed = name.trim();
   const canSave = trimmed.length > 0 && trimmed !== user?.displayName && !saving;
@@ -88,6 +103,79 @@ export function SettingsScreen() {
     }
   }
 
+  async function pickAndUpload() {
+    if (pickerActiveRef.current) return;
+    pickerActiveRef.current = true;
+    setPhotoError(null);
+    try {
+      // On web the media-library permission is always granted, and the file
+      // dialog only opens inside the tap's user-gesture window — awaiting the
+      // permission first can drop that activation, so we skip it on web and
+      // launch the picker directly.
+      if (Platform.OS !== "web") {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+          setPhotoError(
+            "Enable photo library access in Settings to choose a profile photo."
+          );
+          return;
+        }
+      }
+      // mediaTypes defaults to images; omitted to avoid version-specific
+      // MediaTypeOptions/MediaType API churn across expo-image-picker releases.
+      // allowsEditing/aspect/quality apply on native; web ignores them.
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (result.canceled || !user) return;
+      setPhotoStatus("uploading");
+      try {
+        const asset = result.assets[0];
+        await uploadProfilePhoto(user.uid, asset.uri, {
+          width: asset.width,
+          height: asset.height,
+        });
+        await refreshUser();
+        setPhotoModalVisible(false);
+      } catch (err: any) {
+        setPhotoError(err.message ?? "Upload failed. Please try again.");
+      } finally {
+        setPhotoStatus("idle");
+      }
+    } finally {
+      pickerActiveRef.current = false;
+    }
+  }
+
+  async function handleRemovePhoto() {
+    if (!user) return;
+    setPhotoError(null);
+    setPhotoStatus("removing");
+    try {
+      await removeProfilePhoto(user.uid);
+      await refreshUser();
+      setPhotoModalVisible(false);
+    } catch (err: any) {
+      setPhotoError(err.message ?? "Couldn't remove photo. Please try again.");
+    } finally {
+      setPhotoStatus("idle");
+    }
+  }
+
+  function openPhotoOptions() {
+    if (photoBusy || pickerActiveRef.current) return;
+    setPhotoError(null);
+    setPhotoModalVisible(true);
+  }
+
+  function closePhotoModal() {
+    if (photoBusy) return; // don't dismiss mid-upload/remove
+    setPhotoModalVisible(false);
+    setPhotoError(null);
+  }
+
   return (
     <View className="flex-1 bg-white">
       {/* Header */}
@@ -103,6 +191,35 @@ export function SettingsScreen() {
         <Text className="text-xs uppercase text-gray-400 px-4 pt-5 pb-2">
           Profile
         </Text>
+        <TouchableOpacity
+          className="items-center pb-4"
+          onPress={openPhotoOptions}
+          disabled={photoBusy}
+          accessibilityRole="button"
+          accessibilityLabel="Profile photo"
+          accessibilityHint="Opens options to change or remove your profile photo"
+        >
+          {user?.photoURL ? (
+            <Image
+              source={{ uri: user.photoURL }}
+              style={{ width: 80, height: 80, borderRadius: 40 }}
+            />
+          ) : (
+            <View
+              className="rounded-full items-center justify-center bg-gray-200"
+              style={{ width: 80, height: 80 }}
+            >
+              <Ionicons name="camera-outline" size={28} color="gray" />
+            </View>
+          )}
+          <Text className="text-sm text-peach mt-2">
+            {photoStatus === "uploading"
+              ? "Uploading…"
+              : photoStatus === "removing"
+                ? "Removing…"
+                : "Change photo"}
+          </Text>
+        </TouchableOpacity>
         <View className="px-4">
           <Text className="text-sm text-gray-500 mb-1">Display name</Text>
           <View className="flex-row items-center">
@@ -207,6 +324,55 @@ export function SettingsScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Photo chooser modal. Built as a Modal (not Alert.alert) because
+          react-native-web's Alert is a no-op — an action sheet would do
+          nothing on web. */}
+      <Modal
+        visible={photoModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closePhotoModal}
+      >
+        <View
+          className="flex-1 justify-center items-center px-8"
+          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+        >
+          <View className="bg-white rounded-2xl p-5 w-full">
+            <Text className="text-base font-semibold mb-2">Profile photo</Text>
+            {photoError && (
+              <Text className="text-sm text-red-600 mb-3">{photoError}</Text>
+            )}
+            <TouchableOpacity
+              className="rounded-full bg-peach px-4 py-3"
+              onPress={pickAndUpload}
+              disabled={photoBusy}
+            >
+              <Text className="text-white font-semibold text-center">
+                {photoStatus === "uploading" ? "Uploading…" : "Change photo"}
+              </Text>
+            </TouchableOpacity>
+            {user?.photoURL && (
+              <TouchableOpacity
+                className="rounded-full border border-red-200 px-4 py-3 mt-3"
+                onPress={handleRemovePhoto}
+                disabled={photoBusy}
+              >
+                <Text className="text-red-600 font-semibold text-center">
+                  {photoStatus === "removing" ? "Removing…" : "Remove photo"}
+                </Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              className="px-4 py-3 mt-1"
+              onPress={closePhotoModal}
+              disabled={photoBusy}
+            >
+              <Text className="text-base text-gray-500 text-center">Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>

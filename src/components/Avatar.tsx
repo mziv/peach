@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text } from "react-native";
+import { View, Text, Image } from "react-native";
 import { getInitials, avatarColor } from "../utils/avatar";
 
 interface AvatarProps {
@@ -8,13 +8,23 @@ interface AvatarProps {
   /** Avatar diameter in pixels. */
   size?: number;
   /**
-   * Profile photo URL. Wired through now but not yet rendered — photo upload
-   * lands in Tier 3, at which point this overrides the initials fallback.
+   * Profile photo URL. When set, renders the photo clipped to a circle;
+   * falls back to the initials avatar when absent.
    */
   photoURL?: string;
 }
 
-export default function Avatar({ displayName, size = 40 }: AvatarProps) {
+export default function Avatar({ displayName, size = 40, photoURL }: AvatarProps) {
+  if (photoURL) {
+    return (
+      <Image
+        source={{ uri: photoURL }}
+        style={{ width: size, height: size, borderRadius: size / 2 }}
+        accessibilityLabel={`${displayName ?? "User"}'s profile photo`}
+      />
+    );
+  }
+
   const initials = getInitials(displayName ?? "");
 
   return (

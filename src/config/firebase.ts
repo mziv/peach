@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, initializeAuth, type Auth, type Persistence } from "firebase/auth";
 import { initializeFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 import { Platform } from "react-native";
 
 const firebaseConfig = {
@@ -39,3 +40,5 @@ export { auth };
 export const db = initializeFirestore(app, {
   experimentalAutoDetectLongPolling: true,
 });
+
+export const storage = getStorage(app);

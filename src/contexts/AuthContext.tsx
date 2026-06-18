@@ -35,6 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         uid: data.uid,
         username: data.username,
         displayName: data.displayName,
+        photoURL: data.photoURL,
         createdAt: data.createdAt?.toDate() ?? new Date(),
       });
     }

@@ -54,10 +54,16 @@ for the detailed design and the decisions behind it.
 
 **Profile photo upload** _(the deferred half of Settings)_
 
-- [ ] Add Firebase Storage + `expo-image-picker`
-- [ ] Pick a photo → upload → store `photoURL` on the user doc
-- [ ] `Avatar` renders `photoURL` (initials fallback)
-- [ ] Photo picker UI in Settings
+- [x] Add Firebase Storage + `expo-image-picker`
+- [x] Pick a photo → upload → store `photoURL` on the user doc
+- [x] `Avatar` renders `photoURL` (initials fallback)
+- [x] Photo picker UI in Settings
+- [x] Storage security rules: owner-only avatar writes, signed-in reads
+- [x] Storage CORS policy so web uploads work
+- [x] Downscale to 512px / JPEG q0.7 before upload (native + web)
+
+> Storage rules live in `storage.rules` (wired for deploy via `firebase.json`).
+> The bucket also needs a one-time CORS policy — see Setup below.
 
 ### Out of scope (for now)
 
@@ -73,6 +79,22 @@ for the detailed design and the decisions behind it.
 ```bash
 npm install
 ```
+
+### Firebase Storage CORS (required for profile photo uploads)
+
+Browser uploads to Firebase Storage are blocked by CORS until a policy is applied
+to the bucket. The policy lives in [`storage.cors.json`](storage.cors.json) (allows
+`localhost` dev ports + the production domain). Apply it once per bucket:
+
+```bash
+# Requires the Google Cloud SDK (`brew install --cask google-cloud-sdk`)
+gcloud auth login
+gsutil cors set storage.cors.json gs://peach-clone.firebasestorage.app
+gsutil cors get gs://peach-clone.firebasestorage.app   # verify
+```
+
+CORS matches on origin (scheme + host + port) only — the path is ignored. When
+adding a new deploy origin, add it to `storage.cors.json` and re-run `cors set`.
 
 ## Running the app
 

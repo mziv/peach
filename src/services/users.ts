@@ -10,9 +10,32 @@ import {
   updateDoc,
   writeBatch,
   or,
+  deleteField,
 } from "firebase/firestore";
-import { db } from "../config/firebase";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
+import { db, storage } from "../config/firebase";
 import { User } from "../types";
+
+// Avatars never display larger than a list row / profile header, so cap the
+// longer edge here. This keeps stored files small (~50–150 KB) and — crucially —
+// compresses on web too, where the picker's quality/aspect options are ignored.
+const MAX_AVATAR_EDGE = 512;
+
+// Picks the resize action that constrains the image's longer edge to
+// MAX_AVATAR_EDGE while preserving aspect ratio. Returns null when the image is
+// already within bounds (don't upscale) or its dimensions are equal. When
+// dimensions are unknown (some web picks), fall back to constraining width.
+function avatarResize(
+  dimensions?: { width?: number; height?: number }
+): { width: number } | { height: number } | null {
+  const { width, height } = dimensions ?? {};
+  if (!width || !height) return { width: MAX_AVATAR_EDGE };
+  if (width <= MAX_AVATAR_EDGE && height <= MAX_AVATAR_EDGE) return null;
+  return width >= height
+    ? { width: MAX_AVATAR_EDGE }
+    : { height: MAX_AVATAR_EDGE };
+}
 
 export async function getUserByUid(uid: string): Promise<User | null> {
   const snap = await getDoc(doc(db, "users", uid));
@@ -22,6 +45,7 @@ export async function getUserByUid(uid: string): Promise<User | null> {
     uid: data.uid,
     username: data.username,
     displayName: data.displayName,
+    photoURL: data.photoURL,
     createdAt: data.createdAt?.toDate() ?? new Date(),
   };
 }
@@ -44,6 +68,7 @@ export async function searchUsersByUsername(
       uid: data.uid,
       username: data.username,
       displayName: data.displayName,
+      photoURL: data.photoURL,
       createdAt: data.createdAt?.toDate() ?? new Date(),
     };
   });
@@ -54,6 +79,47 @@ export async function updateDisplayName(
   displayName: string
 ): Promise<void> {
   await updateDoc(doc(db, "users", uid), { displayName });
+}
+
+export async function uploadProfilePhoto(
+  uid: string,
+  localUri: string,
+  dimensions?: { width?: number; height?: number }
+): Promise<string> {
+  // Downscale + re-encode before upload so avatars stay small on every
+  // platform (the picker's compression is native-only). expo-image-manipulator
+  // works on web via canvas, which closes that gap.
+  const context = ImageManipulator.manipulate(localUri);
+  const resize = avatarResize(dimensions);
+  if (resize) context.resize(resize);
+  const rendered = await context.renderAsync();
+  const resized = await rendered.saveAsync({
+    compress: 0.7,
+    format: SaveFormat.JPEG,
+  });
+
+  const response = await fetch(resized.uri);
+  const blob = await response.blob();
+  const storageRef = ref(storage, `avatars/${uid}`);
+  // We always re-encode to JPEG above, so record that content type explicitly
+  // (the manipulated blob's `type` may be empty) — meaningful for CDN headers
+  // and Storage rules.
+  await uploadBytes(storageRef, blob, {
+    contentType: "image/jpeg",
+  });
+  const photoURL = await getDownloadURL(storageRef);
+  await updateDoc(doc(db, "users", uid), { photoURL });
+  return photoURL;
+}
+
+export async function removeProfilePhoto(uid: string): Promise<void> {
+  try {
+    await deleteObject(ref(storage, `avatars/${uid}`));
+  } catch (err: any) {
+    // A user may have set no photo yet; only re-throw unexpected errors.
+    if (err?.code !== "storage/object-not-found") throw err;
+  }
+  await updateDoc(doc(db, "users", uid), { photoURL: deleteField() });
 }
 
 export async function deleteAccountData(uid: string): Promise<void> {
@@ -89,6 +155,16 @@ export async function deleteAccountData(uid: string): Promise<void> {
 
   // Finally, the user document itself.
   batch.delete(doc(db, "users", uid));
+
+  // Remove the profile photo from Storage (not part of the Firestore batch).
+  // Storage and Firestore can't share a transaction, so we delete the image
+  // first and commit the Firestore batch last: if the commit fails, we've at
+  // worst removed an avatar we can no longer reference, never the reverse.
+  try {
+    await deleteObject(ref(storage, `avatars/${uid}`));
+  } catch (err: any) {
+    if (err?.code !== "storage/object-not-found") throw err;
+  }
 
   await batch.commit();
 }
