@@ -127,6 +127,7 @@ export async function deleteAccountData(uid: string): Promise<void> {
 
   // Posts, plus each post's comments and likes subcollections.
   const postsSnap = await getDocs(collection(db, "users", uid, "posts"));
+  const photoPaths: string[] = [];
   for (const postDoc of postsSnap.docs) {
     const commentsSnap = await getDocs(
       collection(db, "users", uid, "posts", postDoc.id, "comments")
@@ -137,6 +138,9 @@ export async function deleteAccountData(uid: string): Promise<void> {
       collection(db, "users", uid, "posts", postDoc.id, "likes")
     );
     likesSnap.docs.forEach((l) => batch.delete(l.ref));
+
+    const photoURLs: string[] = postDoc.data?.()?.photoURLs ?? [];
+    photoURLs.forEach((_, i) => photoPaths.push(`posts/${uid}/${postDoc.id}/${i}`));
 
     batch.delete(postDoc.ref);
   }
@@ -164,6 +168,15 @@ export async function deleteAccountData(uid: string): Promise<void> {
     await deleteObject(ref(storage, `avatars/${uid}`));
   } catch (err: any) {
     if (err?.code !== "storage/object-not-found") throw err;
+  }
+
+  // Remove all post photos from Storage.
+  for (const path of photoPaths) {
+    try {
+      await deleteObject(ref(storage, path));
+    } catch (err: any) {
+      if (err?.code !== "storage/object-not-found") throw err;
+    }
   }
 
   await batch.commit();
