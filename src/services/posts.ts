@@ -8,8 +8,10 @@ import {
   limit,
   serverTimestamp,
   writeBatch,
+  updateDoc,
 } from "firebase/firestore";
-import { db } from "../config/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "../config/firebase";
 import { Post } from "../types";
 
 export async function createPost(uid: string, text: string): Promise<string> {
@@ -112,4 +114,32 @@ export async function deletePost(uid: string, postId: string): Promise<void> {
   }
 
   await batch.commit();
+}
+
+export async function uploadPostPhotos(
+  uid: string,
+  postId: string,
+  localUris: string[]
+): Promise<string[]> {
+  const urls: string[] = [];
+  for (let i = 0; i < localUris.length; i++) {
+    const response = await fetch(localUris[i]);
+    const blob = await response.blob();
+    const storageRef = ref(storage, `posts/${uid}/${postId}/${i}`);
+    // Expo file:// blobs often have an empty `type`; default to JPEG so the
+    // stored content type is meaningful for CDN headers and Storage rules.
+    await uploadBytes(storageRef, blob, {
+      contentType: blob.type || "image/jpeg",
+    });
+    urls.push(await getDownloadURL(storageRef));
+  }
+  return urls;
+}
+
+export async function updatePost(
+  uid: string,
+  postId: string,
+  fields: { photoURLs?: string[] }
+): Promise<void> {
+  await updateDoc(doc(db, "users", uid, "posts", postId), fields);
 }

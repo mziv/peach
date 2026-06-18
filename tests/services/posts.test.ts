@@ -1,10 +1,13 @@
-import { doc, getDocs, getDoc, writeBatch } from "firebase/firestore";
+import { doc, getDocs, getDoc, writeBatch, updateDoc } from "firebase/firestore";
 import {
   createPost,
   getPostsByUser,
   getPost,
   deletePost,
+  uploadPostPhotos,
+  updatePost,
 } from "../../src/services/posts";
+import { uploadBytes } from "firebase/storage";
 
 jest.mock("firebase/firestore", () => ({
   collection: jest.fn(),
@@ -16,10 +19,18 @@ jest.mock("firebase/firestore", () => ({
   limit: jest.fn(),
   serverTimestamp: jest.fn(() => "mock-timestamp"),
   writeBatch: jest.fn(),
+  updateDoc: jest.fn(),
+}));
+
+jest.mock("firebase/storage", () => ({
+  ref: jest.fn((_s, path) => ({ path })),
+  uploadBytes: jest.fn().mockResolvedValue(undefined),
+  getDownloadURL: jest.fn((r) => Promise.resolve(`https://dl/${r.path}`)),
 }));
 
 jest.mock("../../src/config/firebase", () => ({
   db: {},
+  storage: {},
 }));
 
 describe("posts service", () => {
@@ -195,6 +206,36 @@ describe("posts service", () => {
         { lastPostText: "", lastPostAt: null },
         { merge: true }
       );
+    });
+  });
+});
+
+describe("uploadPostPhotos", () => {
+  beforeEach(() => {
+    (global as any).fetch = jest
+      .fn()
+      .mockResolvedValue({ blob: () => Promise.resolve({ type: "image/jpeg" }) });
+  });
+
+  it("uploads each uri to posts/{uid}/{postId}/{index} and returns URLs", async () => {
+    const urls = await uploadPostPhotos("uid-1", "post-1", [
+      "file:///a.jpg",
+      "file:///b.jpg",
+    ]);
+
+    expect(uploadBytes).toHaveBeenCalledTimes(2);
+    expect(urls).toEqual([
+      "https://dl/posts/uid-1/post-1/0",
+      "https://dl/posts/uid-1/post-1/1",
+    ]);
+  });
+});
+
+describe("updatePost", () => {
+  it("patches the post doc with the given fields", async () => {
+    await updatePost("uid-1", "post-1", { photoURLs: ["https://dl/x"] });
+    expect(updateDoc).toHaveBeenCalledWith(expect.anything(), {
+      photoURLs: ["https://dl/x"],
     });
   });
 });
