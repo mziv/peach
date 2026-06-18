@@ -1,4 +1,4 @@
-import { getDocs, getDoc, writeBatch } from "firebase/firestore";
+import { doc, getDocs, getDoc, writeBatch } from "firebase/firestore";
 import {
   createPost,
   getPostsByUser,
@@ -26,16 +26,17 @@ describe("posts service", () => {
   beforeEach(() => jest.clearAllMocks());
 
   describe("createPost", () => {
-    it("creates a post and updates user meta in a batch", async () => {
+    it("creates a post, updates meta, and returns the new postId", async () => {
       const mockBatch = {
         set: jest.fn(),
         commit: jest.fn().mockResolvedValue(undefined),
       };
       (writeBatch as jest.Mock).mockReturnValue(mockBatch);
+      (doc as jest.Mock).mockReturnValueOnce({ id: "new-post-id" });
 
-      await createPost("uid-1", "Hello world!");
+      const postId = await createPost("uid-1", "Hello world!");
 
-      expect(mockBatch.set).toHaveBeenCalled();
+      expect(postId).toBe("new-post-id");
       expect(mockBatch.set).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ text: "Hello world!" })

@@ -12,7 +12,7 @@ import {
 import { db } from "../config/firebase";
 import { Post } from "../types";
 
-export async function createPost(uid: string, text: string): Promise<void> {
+export async function createPost(uid: string, text: string): Promise<string> {
   const batch = writeBatch(db);
 
   const postRef = doc(collection(db, "users", uid, "posts"));
@@ -32,6 +32,7 @@ export async function createPost(uid: string, text: string): Promise<void> {
   );
 
   await batch.commit();
+  return postRef.id;
 }
 
 export async function getPostsByUser(uid: string): Promise<Post[]> {
