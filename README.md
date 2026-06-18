@@ -74,6 +74,22 @@ for the detailed design and the decisions behind it.
 npm install
 ```
 
+### Firebase Storage CORS (required for profile photo uploads)
+
+Browser uploads to Firebase Storage are blocked by CORS until a policy is applied
+to the bucket. The policy lives in [`storage.cors.json`](storage.cors.json) (allows
+`localhost` dev ports + the production domain). Apply it once per bucket:
+
+```bash
+# Requires the Google Cloud SDK (`brew install --cask google-cloud-sdk`)
+gcloud auth login
+gsutil cors set storage.cors.json gs://peach-clone.firebasestorage.app
+gsutil cors get gs://peach-clone.firebasestorage.app   # verify
+```
+
+CORS matches on origin (scheme + host + port) only — the path is ignored. When
+adding a new deploy origin, add it to `storage.cors.json` and re-run `cors set`.
+
 ## Running the app
 
 ```bash
