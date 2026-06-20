@@ -166,9 +166,18 @@ export function FriendPageScreen() {
         data={posts}
         keyExtractor={(item) => item.postId}
         onContentSizeChange={() => {
-          if (posts.length > 0) {
+          if (posts.length === 0) return;
+          // Pin to the newest (last) post. A tall final post — long text or
+          // photos — can finish laying out a frame or two after the size first
+          // reports, which left a single scrollToEnd short and landed us on the
+          // TOP of that post. Re-pin across the next frames so we end on its end.
+          const pin = () =>
             flatListRef.current?.scrollToEnd({ animated: false });
-          }
+          pin();
+          requestAnimationFrame(() => {
+            pin();
+            requestAnimationFrame(pin);
+          });
         }}
         renderItem={({ item }) => (
           <PostItem

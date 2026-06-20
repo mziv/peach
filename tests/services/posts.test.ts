@@ -29,6 +29,23 @@ jest.mock("firebase/storage", () => ({
   deleteObject: jest.fn().mockResolvedValue(undefined),
 }));
 
+const mockResize = jest.fn();
+const mockSaveAsync = jest
+  .fn()
+  .mockResolvedValue({ uri: "file:///out.jpg" });
+
+jest.mock("expo-image-manipulator", () => ({
+  ImageManipulator: {
+    manipulate: jest.fn(() => ({
+      resize: mockResize,
+      renderAsync: jest
+        .fn()
+        .mockResolvedValue({ saveAsync: mockSaveAsync }),
+    })),
+  },
+  SaveFormat: { JPEG: "jpeg" },
+}));
+
 jest.mock("../../src/config/firebase", () => ({
   db: {},
   storage: {},
@@ -235,15 +252,16 @@ describe("posts service", () => {
 
 describe("uploadPostPhotos", () => {
   beforeEach(() => {
+    jest.clearAllMocks();
     (global as any).fetch = jest
       .fn()
       .mockResolvedValue({ blob: () => Promise.resolve({ type: "image/jpeg" }) });
   });
 
-  it("uploads each uri to posts/{uid}/{postId}/{index} and returns URLs", async () => {
+  it("uploads each photo to posts/{uid}/{postId}/{index} and returns URLs", async () => {
     const urls = await uploadPostPhotos("uid-1", "post-1", [
-      "file:///a.jpg",
-      "file:///b.jpg",
+      { uri: "file:///a.jpg", width: 4000, height: 3000 },
+      { uri: "file:///b.jpg", width: 4000, height: 3000 },
     ]);
 
     expect(uploadBytes).toHaveBeenCalledTimes(2);
@@ -251,6 +269,22 @@ describe("uploadPostPhotos", () => {
       "https://dl/posts/uid-1/post-1/0",
       "https://dl/posts/uid-1/post-1/1",
     ]);
+  });
+
+  it("downscales the longer edge to 1600px for an oversized image", async () => {
+    await uploadPostPhotos("uid-1", "post-1", [
+      { uri: "file:///big.jpg", width: 4000, height: 3000 },
+    ]);
+
+    expect(mockResize).toHaveBeenCalledWith({ width: 1600 });
+  });
+
+  it("does not upscale an image already within bounds", async () => {
+    await uploadPostPhotos("uid-1", "post-1", [
+      { uri: "file:///small.jpg", width: 800, height: 600 },
+    ]);
+
+    expect(mockResize).not.toHaveBeenCalled();
   });
 });
 
