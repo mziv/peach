@@ -30,7 +30,7 @@ export default function PostItem({
     <View className="p-4 border-b border-gray-100">
       {text ? <Text className="text-base mb-2">{text}</Text> : null}
       {photoURLs && photoURLs.length > 0 ? (
-        <View className="mb-2 gap-2">
+        <View className="mb-2 gap-2 max-w-md">
           {photoURLs.map((url, i) => (
             <Image
               key={i}
