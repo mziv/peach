@@ -8,11 +8,13 @@ import {
   limit,
   serverTimestamp,
   writeBatch,
+  updateDoc,
 } from "firebase/firestore";
-import { db } from "../config/firebase";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { db, storage } from "../config/firebase";
 import { Post } from "../types";
 
-export async function createPost(uid: string, text: string): Promise<void> {
+export async function createPost(uid: string, text: string): Promise<string> {
   const batch = writeBatch(db);
 
   const postRef = doc(collection(db, "users", uid, "posts"));
@@ -32,6 +34,7 @@ export async function createPost(uid: string, text: string): Promise<void> {
   );
 
   await batch.commit();
+  return postRef.id;
 }
 
 export async function getPostsByUser(uid: string): Promise<Post[]> {
@@ -46,6 +49,7 @@ export async function getPostsByUser(uid: string): Promise<Post[]> {
     createdAt: d.data().createdAt?.toDate() ?? new Date(),
     commentCount: d.data().commentCount ?? 0,
     likeCount: d.data().likeCount ?? 0,
+    photoURLs: d.data().photoURLs ?? [],
   }));
 }
 
@@ -62,10 +66,23 @@ export async function getPost(
     createdAt: data.createdAt?.toDate() ?? new Date(),
     commentCount: data.commentCount ?? 0,
     likeCount: data.likeCount ?? 0,
+    photoURLs: data.photoURLs ?? [],
   };
 }
 
 export async function deletePost(uid: string, postId: string): Promise<void> {
+  // Remove Storage photos first (Firestore batches can't touch Storage).
+  const postSnap = await getDoc(doc(db, "users", uid, "posts", postId));
+  const photoURLs: string[] = postSnap.data()?.photoURLs ?? [];
+  for (let i = 0; i < photoURLs.length; i++) {
+    try {
+      await deleteObject(ref(storage, `posts/${uid}/${postId}/${i}`));
+    } catch (err: any) {
+      // Tolerate a missing object (e.g. a partial upload); re-throw the rest.
+      if (err?.code !== "storage/object-not-found") throw err;
+    }
+  }
+
   const batch = writeBatch(db);
 
   // Firestore does not cascade subcollection deletes, so remove the post's
@@ -109,4 +126,32 @@ export async function deletePost(uid: string, postId: string): Promise<void> {
   }
 
   await batch.commit();
+}
+
+export async function uploadPostPhotos(
+  uid: string,
+  postId: string,
+  localUris: string[]
+): Promise<string[]> {
+  const urls: string[] = [];
+  for (let i = 0; i < localUris.length; i++) {
+    const response = await fetch(localUris[i]);
+    const blob = await response.blob();
+    const storageRef = ref(storage, `posts/${uid}/${postId}/${i}`);
+    // Expo file:// blobs often have an empty `type`; default to JPEG so the
+    // stored content type is meaningful for CDN headers and Storage rules.
+    await uploadBytes(storageRef, blob, {
+      contentType: blob.type || "image/jpeg",
+    });
+    urls.push(await getDownloadURL(storageRef));
+  }
+  return urls;
+}
+
+export async function updatePost(
+  uid: string,
+  postId: string,
+  fields: { photoURLs?: string[] }
+): Promise<void> {
+  await updateDoc(doc(db, "users", uid, "posts", postId), fields);
 }

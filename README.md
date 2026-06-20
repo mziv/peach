@@ -65,6 +65,14 @@ for the detailed design and the decisions behind it.
 > Storage rules live in `storage.rules` (wired for deploy via `firebase.json`).
 > The bucket also needs a one-time CORS policy — see Setup below.
 
+**Photos in posts**
+
+- [x] Attach up to 4 photos to a post (`expo-image-picker`, multi-select)
+- [x] Write-first flow: post text saves immediately, photos upload then patch the doc
+- [x] Photos render stacked inline in the post card
+- [x] `deletePost` cleans up the post's Storage objects
+- [x] Storage rules: owner-only post-photo writes, signed-in reads
+
 ### Out of scope (for now)
 
 - Real push notifications — the activity feed is in-app only.

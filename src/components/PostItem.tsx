@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import { View, Text, TouchableOpacity, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { relativeTime } from "../utils/relativeTime";
 
@@ -9,6 +9,7 @@ interface PostItemProps {
   commentCount: number;
   likeCount: number;
   isLiked: boolean;
+  photoURLs?: string[];
   onLikePress: () => void;
   onCommentPress: () => void;
   onDeletePress?: () => void;
@@ -20,13 +21,26 @@ export default function PostItem({
   commentCount,
   likeCount,
   isLiked,
+  photoURLs,
   onLikePress,
   onCommentPress,
   onDeletePress,
 }: PostItemProps) {
   return (
     <View className="p-4 border-b border-gray-100">
-      <Text className="text-base mb-2">{text}</Text>
+      {text ? <Text className="text-base mb-2">{text}</Text> : null}
+      {photoURLs && photoURLs.length > 0 ? (
+        <View className="mb-2 gap-2 max-w-md">
+          {photoURLs.map((url, i) => (
+            <Image
+              key={i}
+              source={{ uri: url }}
+              className="w-full aspect-square rounded-xl bg-gray-100"
+              resizeMode="cover"
+            />
+          ))}
+        </View>
+      ) : null}
       <View className="flex-row items-center gap-4">
         <TouchableOpacity
           className="flex-row items-center gap-1"

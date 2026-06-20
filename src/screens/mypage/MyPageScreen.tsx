@@ -3,6 +3,7 @@ import {
   View,
   Text,
   FlatList,
+  Image,
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
@@ -12,10 +13,11 @@ import {
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "../../config/firebase";
 import { useAuth } from "../../contexts/AuthContext";
-import { createPost, deletePost } from "../../services/posts";
+import { createPost, deletePost, uploadPostPhotos, updatePost } from "../../services/posts";
 import { confirmDestructive, notify } from "../../utils/dialog";
 import { likePost, unlikePost, hasLiked } from "../../services/likes";
 import { HomeStackParamList } from "../../navigation/HomeStack";
@@ -36,6 +38,8 @@ export function MyPageScreen() {
   const [newPostText, setNewPostText] = useState("");
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
+  const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
+  const pickerActiveRef = useRef(false);
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
   const [commentModal, setCommentModal] = useState<{
     visible: boolean;
@@ -58,6 +62,7 @@ export function MyPageScreen() {
         createdAt: d.data().createdAt?.toDate() ?? new Date(),
         commentCount: d.data().commentCount ?? 0,
         likeCount: d.data().likeCount ?? 0,
+        photoURLs: d.data().photoURLs ?? [],
       }));
       setPosts(postList);
       setLoading(false);
@@ -90,14 +95,54 @@ export function MyPageScreen() {
     navigation.setParams({ openCommentPostId: undefined });
   }, [route.params?.openCommentPostId, posts]);
 
+  async function pickPhotos() {
+    if (pickerActiveRef.current) return;
+    const remaining = 4 - selectedPhotos.length;
+    if (remaining <= 0) return;
+    pickerActiveRef.current = true;
+    try {
+      // Web grants media-library permission automatically; requesting it there
+      // would push the file dialog outside the user-gesture window.
+      if (Platform.OS !== "web") {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+          notify("Permission needed", "Allow photo access to add photos.");
+          return;
+        }
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        selectionLimit: remaining,
+        quality: 0.7,
+      });
+      if (result.canceled) return;
+      const uris = result.assets.map((a) => a.uri);
+      setSelectedPhotos((prev) => [...prev, ...uris].slice(0, 4));
+    } finally {
+      pickerActiveRef.current = false;
+    }
+  }
+
   async function handlePost() {
-    if (!newPostText.trim() || !user) return;
+    const text = newPostText.trim();
+    const photos = selectedPhotos;
+    if ((!text && photos.length === 0) || !user) return;
     setPosting(true);
     try {
-      await createPost(user.uid, newPostText.trim());
+      const postId = await createPost(user.uid, text);
+      // Clear the composer immediately; uploads continue in the background.
       setNewPostText("");
+      setSelectedPhotos([]);
+      if (photos.length > 0) {
+        const urls = await uploadPostPhotos(user.uid, postId, photos);
+        await updatePost(user.uid, postId, { photoURLs: urls });
+      }
     } catch (err: any) {
-      notify("Error", err.message);
+      notify(
+        "Upload issue",
+        "Your post was saved, but the photos couldn't be uploaded. You can delete the post and try again."
+      );
     } finally {
       setPosting(false);
     }
@@ -228,6 +273,7 @@ export function MyPageScreen() {
                 postText: item.text,
               })
             }
+            photoURLs={item.photoURLs}
             onDeletePress={() => handleDeletePost(item.postId)}
           />
         )}
@@ -241,25 +287,64 @@ export function MyPageScreen() {
       />
 
       {/* Composer */}
-      <View className="flex-row items-center p-3 border-t border-gray-100 bg-white">
-        <TextInput
-          className="flex-1 bg-gray-50 rounded-full px-4 py-2 text-sm mr-2"
-          placeholder="write something..."
-          value={newPostText}
-          onChangeText={setNewPostText}
-          multiline
-        />
-        <TouchableOpacity
-          className={`rounded-full px-5 py-2 ${
-            newPostText.trim() ? "bg-peach" : "bg-gray-300"
-          }`}
-          onPress={handlePost}
-          disabled={posting || !newPostText.trim()}
-        >
-          <Text className="text-white font-semibold text-sm">
-            {posting ? "..." : "Post"}
-          </Text>
-        </TouchableOpacity>
+      <View className="border-t border-gray-100 bg-white">
+        {selectedPhotos.length > 0 && (
+          <View className="flex-row flex-wrap gap-2 px-3 pt-3">
+            {selectedPhotos.map((uri, i) => (
+              <View key={i} className="relative">
+                <Image
+                  source={{ uri }}
+                  className="w-16 h-16 rounded-lg bg-gray-100"
+                />
+                <TouchableOpacity
+                  className="absolute -top-1 -right-1 bg-black/60 rounded-full w-5 h-5 items-center justify-center"
+                  onPress={() =>
+                    setSelectedPhotos((prev) =>
+                      prev.filter((_, idx) => idx !== i)
+                    )
+                  }
+                >
+                  <Ionicons name="close" size={14} color="white" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+        <View className="flex-row items-center p-3">
+          <TouchableOpacity
+            className="mr-2"
+            onPress={pickPhotos}
+            disabled={selectedPhotos.length >= 4}
+          >
+            <Ionicons
+              name="image-outline"
+              size={24}
+              color={selectedPhotos.length >= 4 ? "#d1d5db" : "#6b7280"}
+            />
+          </TouchableOpacity>
+          <TextInput
+            className="flex-1 bg-gray-50 rounded-full px-4 py-2 text-sm mr-2"
+            placeholder="write something..."
+            value={newPostText}
+            onChangeText={setNewPostText}
+            multiline
+          />
+          <TouchableOpacity
+            className={`rounded-full px-5 py-2 ${
+              newPostText.trim() || selectedPhotos.length > 0
+                ? "bg-peach"
+                : "bg-gray-300"
+            }`}
+            onPress={handlePost}
+            disabled={
+              posting || (!newPostText.trim() && selectedPhotos.length === 0)
+            }
+          >
+            <Text className="text-white font-semibold text-sm">
+              {posting ? "..." : "Post"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Comment Modal */}

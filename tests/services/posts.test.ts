@@ -1,10 +1,13 @@
-import { getDocs, getDoc, writeBatch } from "firebase/firestore";
+import { doc, getDocs, getDoc, writeBatch, updateDoc } from "firebase/firestore";
 import {
   createPost,
   getPostsByUser,
   getPost,
   deletePost,
+  uploadPostPhotos,
+  updatePost,
 } from "../../src/services/posts";
+import { uploadBytes, deleteObject } from "firebase/storage";
 
 jest.mock("firebase/firestore", () => ({
   collection: jest.fn(),
@@ -16,26 +19,36 @@ jest.mock("firebase/firestore", () => ({
   limit: jest.fn(),
   serverTimestamp: jest.fn(() => "mock-timestamp"),
   writeBatch: jest.fn(),
+  updateDoc: jest.fn(),
+}));
+
+jest.mock("firebase/storage", () => ({
+  ref: jest.fn((_s, path) => ({ path })),
+  uploadBytes: jest.fn().mockResolvedValue(undefined),
+  getDownloadURL: jest.fn((r) => Promise.resolve(`https://dl/${r.path}`)),
+  deleteObject: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock("../../src/config/firebase", () => ({
   db: {},
+  storage: {},
 }));
 
 describe("posts service", () => {
   beforeEach(() => jest.clearAllMocks());
 
   describe("createPost", () => {
-    it("creates a post and updates user meta in a batch", async () => {
+    it("creates a post, updates meta, and returns the new postId", async () => {
       const mockBatch = {
         set: jest.fn(),
         commit: jest.fn().mockResolvedValue(undefined),
       };
       (writeBatch as jest.Mock).mockReturnValue(mockBatch);
+      (doc as jest.Mock).mockReturnValueOnce({ id: "new-post-id" });
 
-      await createPost("uid-1", "Hello world!");
+      const postId = await createPost("uid-1", "Hello world!");
 
-      expect(mockBatch.set).toHaveBeenCalled();
+      expect(postId).toBe("new-post-id");
       expect(mockBatch.set).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ text: "Hello world!" })
@@ -69,6 +82,32 @@ describe("posts service", () => {
       expect(posts).toHaveLength(2);
       expect(posts[0].postId).toBe("post-2");
       expect(posts[1].postId).toBe("post-1");
+    });
+
+    it("maps photoURLs when present and defaults to [] when absent", async () => {
+      const mockDocs = [
+        {
+          id: "post-a",
+          data: () => ({
+            text: "with photos",
+            createdAt: { toDate: () => new Date("2026-01-03") },
+            photoURLs: ["https://s/0", "https://s/1"],
+          }),
+        },
+        {
+          id: "post-b",
+          data: () => ({
+            text: "no photos",
+            createdAt: { toDate: () => new Date("2026-01-02") },
+          }),
+        },
+      ];
+      (getDocs as jest.Mock).mockResolvedValue({ docs: mockDocs });
+
+      const posts = await getPostsByUser("uid-1");
+
+      expect(posts[0].photoURLs).toEqual(["https://s/0", "https://s/1"]);
+      expect(posts[1].photoURLs).toEqual([]);
     });
   });
 
@@ -111,6 +150,7 @@ describe("posts service", () => {
     it("deletes the post and all of its comments and likes in a batch", async () => {
       const mockBatch = makeBatch();
       (writeBatch as jest.Mock).mockReturnValue(mockBatch);
+      (getDoc as jest.Mock).mockResolvedValue({ data: () => ({}) });
       (getDocs as jest.Mock)
         // comments subcollection
         .mockResolvedValueOnce({ docs: [{ ref: "c-1" }, { ref: "c-2" }] })
@@ -129,6 +169,7 @@ describe("posts service", () => {
     it("recomputes meta to the next-most-recent post", async () => {
       const mockBatch = makeBatch();
       (writeBatch as jest.Mock).mockReturnValue(mockBatch);
+      (getDoc as jest.Mock).mockResolvedValue({ data: () => ({}) });
       (getDocs as jest.Mock)
         .mockResolvedValueOnce({ docs: [] }) // comments
         .mockResolvedValueOnce({ docs: [] }) // likes
@@ -154,6 +195,7 @@ describe("posts service", () => {
     it("clears meta when no posts remain", async () => {
       const mockBatch = makeBatch();
       (writeBatch as jest.Mock).mockReturnValue(mockBatch);
+      (getDoc as jest.Mock).mockResolvedValue({ data: () => ({}) });
       (getDocs as jest.Mock)
         .mockResolvedValueOnce({ docs: [] }) // comments
         .mockResolvedValueOnce({ docs: [] }) // likes
@@ -168,6 +210,55 @@ describe("posts service", () => {
         { lastPostText: "", lastPostAt: null },
         { merge: true }
       );
+    });
+
+    it("deletes each Storage photo for a post that has photos", async () => {
+      const mockBatch = makeBatch();
+      (writeBatch as jest.Mock).mockReturnValue(mockBatch);
+      (getDoc as jest.Mock).mockResolvedValue({
+        exists: () => true,
+        data: () => ({ photoURLs: ["https://dl/0", "https://dl/1"] }),
+      });
+      (getDocs as jest.Mock)
+        .mockResolvedValueOnce({ docs: [] }) // comments
+        .mockResolvedValueOnce({ docs: [] }) // likes
+        .mockResolvedValueOnce({
+          docs: [{ id: "post-1", data: () => ({ text: "deleted" }) }],
+        });
+
+      await deletePost("uid-1", "post-1");
+
+      expect(deleteObject).toHaveBeenCalledTimes(2);
+    });
+  });
+});
+
+describe("uploadPostPhotos", () => {
+  beforeEach(() => {
+    (global as any).fetch = jest
+      .fn()
+      .mockResolvedValue({ blob: () => Promise.resolve({ type: "image/jpeg" }) });
+  });
+
+  it("uploads each uri to posts/{uid}/{postId}/{index} and returns URLs", async () => {
+    const urls = await uploadPostPhotos("uid-1", "post-1", [
+      "file:///a.jpg",
+      "file:///b.jpg",
+    ]);
+
+    expect(uploadBytes).toHaveBeenCalledTimes(2);
+    expect(urls).toEqual([
+      "https://dl/posts/uid-1/post-1/0",
+      "https://dl/posts/uid-1/post-1/1",
+    ]);
+  });
+});
+
+describe("updatePost", () => {
+  it("patches the post doc with the given fields", async () => {
+    await updatePost("uid-1", "post-1", { photoURLs: ["https://dl/x"] });
+    expect(updateDoc).toHaveBeenCalledWith(expect.anything(), {
+      photoURLs: ["https://dl/x"],
     });
   });
 });

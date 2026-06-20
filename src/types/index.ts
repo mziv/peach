@@ -17,6 +17,7 @@ export interface Post {
   createdAt: Date;
   commentCount: number;
   likeCount: number;
+  photoURLs?: string[];
 }
 
 export interface Comment {

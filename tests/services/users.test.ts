@@ -204,6 +204,42 @@ describe("users service", () => {
 
       await expect(deleteAccountData("uid-1")).resolves.toBeUndefined();
     });
+
+    it("deletes post photos from Storage for each photoURL in a post doc", async () => {
+      const batch = { delete: jest.fn(), commit: jest.fn().mockResolvedValue(undefined) };
+      (writeBatch as jest.Mock).mockReturnValue(batch);
+
+      const postId = "post-abc";
+      // getDocs call order: posts, comments(post-abc), likes(post-abc), friendships
+      (getDocs as jest.Mock)
+        .mockResolvedValueOnce({
+          docs: [
+            {
+              id: postId,
+              ref: "postRef",
+              data: () => ({ photoURLs: ["url-a", "url-b"] }),
+            },
+          ],
+        })
+        .mockResolvedValueOnce({ docs: [] }) // comments
+        .mockResolvedValueOnce({ docs: [] }) // likes
+        .mockResolvedValueOnce({ docs: [] }); // friendships
+
+      // ref mock: capture the path so we can assert on it
+      (ref as jest.Mock).mockImplementation((_storage: any, path: string) => ({ path }));
+      (deleteObject as jest.Mock).mockResolvedValue(undefined);
+
+      await deleteAccountData("uid-1");
+
+      const deletedPaths = (deleteObject as jest.Mock).mock.calls.map(
+        ([refObj]: [{ path: string }]) => refObj.path
+      );
+
+      expect(deletedPaths).toContain(`posts/uid-1/${postId}/0`);
+      expect(deletedPaths).toContain(`posts/uid-1/${postId}/1`);
+      // Avatar should also have been deleted
+      expect(deletedPaths).toContain("avatars/uid-1");
+    });
   });
 
   describe("uploadProfilePhoto", () => {
