@@ -26,6 +26,9 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 
+# Claude Code (local agent worktrees, settings, scratch)
+.claude/
+
 # macOS
 .DS_Store
 *.pem
