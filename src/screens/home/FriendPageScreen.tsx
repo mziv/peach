@@ -113,6 +113,7 @@ export function FriendPageScreen() {
           user.uid,
           user.username,
           user.displayName,
+          user.photoURL,
           post?.text ?? ""
         );
       }

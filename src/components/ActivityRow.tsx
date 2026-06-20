@@ -25,7 +25,11 @@ export default function ActivityRow({ notification, onPress }: ActivityRowProps)
 
   const content = (
     <>
-      <Avatar size={40} displayName={notification.actorDisplayName} />
+      <Avatar
+        size={40}
+        displayName={notification.actorDisplayName}
+        photoURL={notification.actorPhotoURL}
+      />
       <View className="ml-3 flex-1">
         <View className="flex-row items-center justify-between">
           <View className="flex-row flex-1 flex-wrap">

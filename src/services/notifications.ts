@@ -20,6 +20,7 @@ interface CommentNotificationData {
   actorUid: string;
   actorUsername: string;
   actorDisplayName: string;
+  actorPhotoURL?: string;
   postId: string;
   postOwnerUid: string;
   postTextPreview: string;
@@ -28,13 +29,25 @@ interface CommentNotificationData {
 
 type LikeNotificationData = Omit<CommentNotificationData, "commentText">;
 
+// Firestore rejects undefined field values (we don't set ignoreUndefinedProperties),
+// so drop actorPhotoURL entirely when the actor has no profile photo.
+function stripUndefinedPhoto<T extends { actorPhotoURL?: string }>(data: T): T {
+  if (data.actorPhotoURL !== undefined) return data;
+  const { actorPhotoURL: _omit, ...rest } = data;
+  return rest as T;
+}
+
 export function addCommentNotification(
   batch: WriteBatch,
   recipientUid: string,
   data: CommentNotificationData
 ): void {
   const ref = doc(collection(db, "users", recipientUid, "notifications"));
-  batch.set(ref, { type: "comment", ...data, createdAt: serverTimestamp() });
+  batch.set(ref, {
+    type: "comment",
+    ...stripUndefinedPhoto(data),
+    createdAt: serverTimestamp(),
+  });
 }
 
 export function addLikeNotification(
@@ -49,7 +62,11 @@ export function addLikeNotification(
     "notifications",
     likeNotifId(data.postId, data.actorUid)
   );
-  batch.set(ref, { type: "like", ...data, createdAt: serverTimestamp() });
+  batch.set(ref, {
+    type: "like",
+    ...stripUndefinedPhoto(data),
+    createdAt: serverTimestamp(),
+  });
 }
 
 export function removeLikeNotification(
@@ -90,6 +107,7 @@ export function subscribeNotifications(
         actorUid: d.data().actorUid,
         actorUsername: d.data().actorUsername,
         actorDisplayName: d.data().actorDisplayName,
+        actorPhotoURL: d.data().actorPhotoURL,
         postId: d.data().postId,
         postOwnerUid: d.data().postOwnerUid,
         postTextPreview: d.data().postTextPreview,
