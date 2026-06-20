@@ -27,12 +27,24 @@ describe("likes service", () => {
       };
       (writeBatch as jest.Mock).mockReturnValue(mockBatch);
 
-      await likePost("owner-1", "post-1", "liker-1", "liker", "Liker", "post text");
+      await likePost(
+        "owner-1",
+        "post-1",
+        "liker-1",
+        "liker",
+        "Liker",
+        "https://photos/liker.jpg",
+        "post text"
+      );
 
       expect(mockBatch.set).toHaveBeenCalledTimes(2);
       expect(mockBatch.set).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ type: "like", actorUid: "liker-1" })
+        expect.objectContaining({
+          type: "like",
+          actorUid: "liker-1",
+          actorPhotoURL: "https://photos/liker.jpg",
+        })
       );
       expect(mockBatch.update).toHaveBeenCalledWith(expect.anything(), {
         likeCount: "increment(1)",
@@ -49,7 +61,15 @@ describe("likes service", () => {
       };
       (writeBatch as jest.Mock).mockReturnValue(mockBatch);
 
-      await likePost("owner-1", "post-1", "owner-1", "owner", "Owner", "post text");
+      await likePost(
+        "owner-1",
+        "post-1",
+        "owner-1",
+        "owner",
+        "Owner",
+        "https://photos/owner.jpg",
+        "post text"
+      );
 
       expect(mockBatch.set).toHaveBeenCalledTimes(1);
     });

@@ -13,6 +13,7 @@ export async function likePost(
   likerUid: string,
   likerUsername: string,
   likerDisplayName: string,
+  likerPhotoURL: string | undefined,
   postText: string
 ): Promise<void> {
   const batch = writeBatch(db);
@@ -28,6 +29,7 @@ export async function likePost(
       actorUid: likerUid,
       actorUsername: likerUsername,
       actorDisplayName: likerDisplayName,
+      actorPhotoURL: likerPhotoURL,
       postId,
       postOwnerUid,
       postTextPreview: postText.slice(0, 100),

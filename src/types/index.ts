@@ -41,6 +41,7 @@ export interface Notification {
   actorUid: string;
   actorUsername: string;
   actorDisplayName: string;
+  actorPhotoURL?: string;
   postId: string;
   postOwnerUid: string;
   postTextPreview: string;

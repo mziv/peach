@@ -44,6 +44,7 @@ describe("comments service", () => {
         "uid-2",
         "commenter",
         "Commenter Name",
+        "https://photos/commenter.jpg",
         "Nice post!",
         "the original post text"
       );
@@ -71,6 +72,7 @@ describe("comments service", () => {
         "uid-2",
         "commenter",
         "Commenter Name",
+        "https://photos/commenter.jpg",
         "Nice post!",
         "the original post text"
       );
@@ -78,8 +80,30 @@ describe("comments service", () => {
       expect(mockBatch.set).toHaveBeenCalledTimes(2);
       expect(mockBatch.set).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ type: "comment", actorUid: "uid-2" })
+        expect.objectContaining({
+          type: "comment",
+          actorUid: "uid-2",
+          actorPhotoURL: "https://photos/commenter.jpg",
+        })
       );
+    });
+
+    it("omits actorPhotoURL from the notification when the actor has no photo", async () => {
+      const mockBatch = mockBatchSetup();
+
+      await addComment(
+        "owner-1",
+        "post-1",
+        "uid-2",
+        "commenter",
+        "Commenter Name",
+        undefined,
+        "Nice post!",
+        "the original post text"
+      );
+
+      const notifPayload = mockBatch.set.mock.calls[1][1];
+      expect(notifPayload).not.toHaveProperty("actorPhotoURL");
     });
 
     it("does not notify when commenting on your own post", async () => {
@@ -91,6 +115,7 @@ describe("comments service", () => {
         "owner-1",
         "owner",
         "Owner Name",
+        "https://photos/owner.jpg",
         "self comment",
         "my own post"
       );

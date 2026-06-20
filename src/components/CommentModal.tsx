@@ -105,6 +105,7 @@ export default function CommentModal({
         user.uid,
         user.username,
         user.displayName,
+        user.photoURL,
         commentText.trim(),
         postText
       );

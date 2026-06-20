@@ -18,6 +18,7 @@ export async function addComment(
   authorUid: string,
   authorUsername: string,
   authorDisplayName: string,
+  authorPhotoURL: string | undefined,
   text: string,
   postText: string
 ): Promise<void> {
@@ -41,6 +42,7 @@ export async function addComment(
       actorUid: authorUid,
       actorUsername: authorUsername,
       actorDisplayName: authorDisplayName,
+      actorPhotoURL: authorPhotoURL,
       postId,
       postOwnerUid,
       postTextPreview: postText.slice(0, 100),

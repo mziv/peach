@@ -128,6 +128,7 @@ export function MyPageScreen() {
           user.uid,
           user.username,
           user.displayName,
+          user.photoURL,
           post?.text ?? ""
         );
       }
