@@ -11,8 +11,31 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { db, storage } from "../config/firebase";
 import { Post } from "../types";
+
+// Post photos render at most one screen-width wide in the feed (and full-screen
+// when opened), so ~1600px on the longer edge stays crisp on high-density phones
+// while shrinking typical multi-megapixel camera shots ~8–12x. As with avatars
+// we re-encode on every platform because the picker's compression is native-only
+// (ignored on web), and the raw upload could otherwise hit the 5 MB Storage cap.
+const MAX_POST_PHOTO_EDGE = 1600;
+
+// Picks the resize action that constrains the image's longer edge to
+// MAX_POST_PHOTO_EDGE while preserving aspect ratio. Returns null when the image
+// is already within bounds (don't upscale). When dimensions are unknown (some web
+// picks), fall back to constraining width.
+function postPhotoResize(
+  dimensions?: { width?: number; height?: number }
+): { width: number } | { height: number } | null {
+  const { width, height } = dimensions ?? {};
+  if (!width || !height) return { width: MAX_POST_PHOTO_EDGE };
+  if (width <= MAX_POST_PHOTO_EDGE && height <= MAX_POST_PHOTO_EDGE) return null;
+  return width >= height
+    ? { width: MAX_POST_PHOTO_EDGE }
+    : { height: MAX_POST_PHOTO_EDGE };
+}
 
 export async function createPost(uid: string, text: string): Promise<string> {
   const batch = writeBatch(db);
@@ -131,17 +154,30 @@ export async function deletePost(uid: string, postId: string): Promise<void> {
 export async function uploadPostPhotos(
   uid: string,
   postId: string,
-  localUris: string[]
+  photos: Array<{ uri: string; width?: number; height?: number }>
 ): Promise<string[]> {
   const urls: string[] = [];
-  for (let i = 0; i < localUris.length; i++) {
-    const response = await fetch(localUris[i]);
+  for (let i = 0; i < photos.length; i++) {
+    // Downscale + re-encode before upload so feed photos stay small on every
+    // platform (the picker's compression is native-only). expo-image-manipulator
+    // works on web via canvas, which closes that gap.
+    const context = ImageManipulator.manipulate(photos[i].uri);
+    const resize = postPhotoResize(photos[i]);
+    if (resize) context.resize(resize);
+    const rendered = await context.renderAsync();
+    const out = await rendered.saveAsync({
+      compress: 0.7,
+      format: SaveFormat.JPEG,
+    });
+
+    const response = await fetch(out.uri);
     const blob = await response.blob();
     const storageRef = ref(storage, `posts/${uid}/${postId}/${i}`);
-    // Expo file:// blobs often have an empty `type`; default to JPEG so the
-    // stored content type is meaningful for CDN headers and Storage rules.
+    // We always re-encode to JPEG above, so record that content type explicitly
+    // (the manipulated blob's `type` may be empty) — meaningful for CDN headers
+    // and Storage rules.
     await uploadBytes(storageRef, blob, {
-      contentType: blob.type || "image/jpeg",
+      contentType: "image/jpeg",
     });
     urls.push(await getDownloadURL(storageRef));
   }

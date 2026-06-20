@@ -38,7 +38,9 @@ export function MyPageScreen() {
   const [newPostText, setNewPostText] = useState("");
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
-  const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
+  const [selectedPhotos, setSelectedPhotos] = useState<
+    { uri: string; width?: number; height?: number }[]
+  >([]);
   const pickerActiveRef = useRef(false);
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
   const [commentModal, setCommentModal] = useState<{
@@ -117,8 +119,14 @@ export function MyPageScreen() {
         quality: 0.7,
       });
       if (result.canceled) return;
-      const uris = result.assets.map((a) => a.uri);
-      setSelectedPhotos((prev) => [...prev, ...uris].slice(0, 4));
+      // Keep each asset's dimensions so the uploader can downscale without
+      // upscaling images that are already small.
+      const picked = result.assets.map((a) => ({
+        uri: a.uri,
+        width: a.width,
+        height: a.height,
+      }));
+      setSelectedPhotos((prev) => [...prev, ...picked].slice(0, 4));
     } finally {
       pickerActiveRef.current = false;
     }
@@ -254,9 +262,18 @@ export function MyPageScreen() {
         data={posts}
         keyExtractor={(item) => item.postId}
         onContentSizeChange={() => {
-          if (posts.length > 0) {
+          if (posts.length === 0) return;
+          // Pin to the newest (last) post. A tall final post — long text or
+          // photos — can finish laying out a frame or two after the size first
+          // reports, which left a single scrollToEnd short and landed us on the
+          // TOP of that post. Re-pin across the next frames so we end on its end.
+          const pin = () =>
             flatListRef.current?.scrollToEnd({ animated: false });
-          }
+          pin();
+          requestAnimationFrame(() => {
+            pin();
+            requestAnimationFrame(pin);
+          });
         }}
         renderItem={({ item }) => (
           <PostItem
@@ -291,10 +308,10 @@ export function MyPageScreen() {
       <View className="border-t border-gray-100 bg-white">
         {selectedPhotos.length > 0 && (
           <View className="flex-row flex-wrap gap-2 px-3 pt-3">
-            {selectedPhotos.map((uri, i) => (
+            {selectedPhotos.map((photo, i) => (
               <View key={i} className="relative">
                 <Image
-                  source={{ uri }}
+                  source={{ uri: photo.uri }}
                   className="w-16 h-16 rounded-lg bg-gray-100"
                 />
                 <TouchableOpacity
