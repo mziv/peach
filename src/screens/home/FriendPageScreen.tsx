@@ -53,6 +53,14 @@ export function FriendPageScreen() {
       orderBy("createdAt", "asc")
     );
     const unsubscribe = onSnapshot(q, async (snap) => {
+      // Firestore's offline cache makes onSnapshot fire twice: once with the
+      // locally-cached docs (instant, but stale) and again with server data.
+      // Rendering the cached emission flashes old posts that then get replaced
+      // when the server data arrives. Wait for the server snapshot so the feed
+      // paints once with fresh data. Trade-off: first paint waits on the
+      // network (no instant cache paint, and no posts shown while offline).
+      if (snap.metadata.fromCache) return;
+
       const postList: Post[] = snap.docs.map((d) => ({
         postId: d.id,
         text: d.data().text,
