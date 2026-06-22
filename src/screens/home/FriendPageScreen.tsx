@@ -59,6 +59,7 @@ export function FriendPageScreen() {
         createdAt: d.data().createdAt?.toDate() ?? new Date(),
         commentCount: d.data().commentCount ?? 0,
         likeCount: d.data().likeCount ?? 0,
+        photoURLs: d.data().photoURLs ?? [],
       }));
       setPosts(postList);
       setLoading(false);
@@ -186,6 +187,7 @@ export function FriendPageScreen() {
             commentCount={item.commentCount}
             likeCount={item.likeCount}
             isLiked={likedMap[item.postId] ?? false}
+            photoURLs={item.photoURLs}
             onLikePress={() => handleLikeToggle(item.postId)}
             onCommentPress={() =>
               setCommentModal({
