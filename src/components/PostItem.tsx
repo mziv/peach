@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { View, Text, TouchableOpacity, Image, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { relativeTime } from "../utils/relativeTime";
+import LinkifiedText from "./LinkifiedText";
 import { createDoubleTapDetector } from "../utils/doubleTap";
 
 // A feed photo shown at its original aspect ratio. A remote Image doesn't
@@ -81,7 +82,7 @@ export default function PostItem({
     // controls never feeds the double-tap detector.
     <View className="p-4 border-b border-gray-100">
       <Pressable onPress={handleBodyPress}>
-        {text ? <Text className="text-base mb-2">{text}</Text> : null}
+        {text ? <LinkifiedText text={text} className="text-base mb-2" /> : null}
         {photoURLs && photoURLs.length > 0 ? (
           <View className="mb-2 gap-2 max-w-md">
             {photoURLs.map((url, i) => (
