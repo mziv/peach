@@ -19,9 +19,21 @@ jest.mock("firebase/firestore", () => ({
   query: jest.fn(),
   orderBy: jest.fn(),
   onSnapshot: jest.fn((_q, cb) => {
-    cb({ docs: [FRIEND_POST] });
+    // The screen ignores cache-only emissions (snap.metadata.fromCache), so the
+    // mock must supply metadata or the callback throws and no posts render.
+    cb({ docs: [FRIEND_POST], metadata: { fromCache: false } });
     return jest.fn();
   }),
+}));
+
+// CommentModal now imports services/users (for hydrating comment author
+// photos), which pulls in firebase/storage. It's never exercised here, but the
+// untransformed ESM module must be mocked so the suite can load.
+jest.mock("firebase/storage", () => ({
+  ref: jest.fn(),
+  uploadBytes: jest.fn(),
+  getDownloadURL: jest.fn(),
+  deleteObject: jest.fn(),
 }));
 
 jest.mock("../../src/config/firebase", () => ({ db: {} }));

@@ -198,6 +198,13 @@ export function MyPageScreen() {
     }
   }
 
+  // Double-tapping a post likes it but never unlikes. If it's already liked,
+  // do nothing; otherwise reuse the toggle's optimistic like path.
+  function handleDoubleTapLike(postId: string) {
+    if (likedMap[postId]) return;
+    handleLikeToggle(postId);
+  }
+
   async function handleDeletePost(postId: string) {
     if (!user) return;
     const confirmed = await confirmDestructive(
@@ -283,6 +290,7 @@ export function MyPageScreen() {
             likeCount={item.likeCount}
             isLiked={likedMap[item.postId] ?? false}
             onLikePress={() => handleLikeToggle(item.postId)}
+            onDoubleTapLike={() => handleDoubleTapLike(item.postId)}
             onCommentPress={() =>
               setCommentModal({
                 visible: true,
