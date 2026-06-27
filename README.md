@@ -70,6 +70,7 @@ for the detailed design and the decisions behind it.
 - [x] Attach up to 4 photos to a post (`expo-image-picker`, multi-select)
 - [x] Write-first flow: post text saves immediately, photos upload then patch the doc
 - [x] Photos render stacked inline in the post card
+- [x] Photos display at their original aspect ratio (no square cropping)
 - [x] Downscale to 1600px / JPEG q0.7 before upload (native + web)
 - [x] `deletePost` cleans up the post's Storage objects
 - [x] Storage rules: owner-only post-photo writes, signed-in reads
