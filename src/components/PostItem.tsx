@@ -1,7 +1,40 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { relativeTime } from "../utils/relativeTime";
+
+// A feed photo shown at its original aspect ratio. A remote Image doesn't
+// report its dimensions until fetched, so we ask for them up front via
+// Image.getSize and derive width/height. Until they're known (or if the
+// lookup fails), we fall back to a square so the layout never collapses.
+function FeedPhoto({ uri }: { uri: string }) {
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    Image.getSize(
+      uri,
+      (width, height) => {
+        if (active && height > 0) setAspectRatio(width / height);
+      },
+      () => {
+        // Keep the square fallback if dimensions can't be loaded.
+      }
+    );
+    return () => {
+      active = false;
+    };
+  }, [uri]);
+
+  return (
+    <Image
+      source={{ uri }}
+      className="w-full rounded-xl bg-gray-100"
+      style={{ aspectRatio: aspectRatio ?? 1 }}
+      resizeMode="cover"
+    />
+  );
+}
 
 interface PostItemProps {
   text: string;
@@ -32,12 +65,7 @@ export default function PostItem({
       {photoURLs && photoURLs.length > 0 ? (
         <View className="mb-2 gap-2 max-w-md">
           {photoURLs.map((url, i) => (
-            <Image
-              key={i}
-              source={{ uri: url }}
-              className="w-full aspect-square rounded-xl bg-gray-100"
-              resizeMode="cover"
-            />
+            <FeedPhoto key={i} uri={url} />
           ))}
         </View>
       ) : null}
