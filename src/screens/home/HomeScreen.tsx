@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Ionicons } from "@expo/vector-icons";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../config/firebase";
 import { useAuth } from "../../contexts/AuthContext";
@@ -17,6 +18,7 @@ import { getViewedMap, hasNewActivity } from "../../services/viewedFriends";
 import { HomeStackParamList } from "../../navigation/HomeStack";
 import UserPreview from "../../components/UserPreview";
 import { useWebPullToRefresh } from "../../hooks/useWebPullToRefresh";
+import { useUnreadActivity } from "../../hooks/useUnreadActivity";
 
 type HomeNav = NativeStackNavigationProp<HomeStackParamList, "Home">;
 
@@ -38,6 +40,7 @@ interface SelfMeta {
 export function HomeScreen() {
 	const navigation = useNavigation<HomeNav>();
 	const { user } = useAuth();
+	const hasUnread = useUnreadActivity(user?.uid);
 	const [friends, setFriends] = useState<FriendWithMeta[]>([]);
 	const [selfMeta, setSelfMeta] = useState<SelfMeta>({
 		lastPostText: "",
@@ -174,6 +177,28 @@ export function HomeScreen() {
 
 	return (
 		<View className="flex-1 bg-white">
+			{/* Custom header */}
+			<View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-100 bg-white">
+				<Text className="text-xl font-bold text-peach">peach</Text>
+				<View className="flex-row items-center gap-3">
+					<TouchableOpacity onPress={() => navigation.navigate("Activity")}>
+						<View>
+							<Ionicons
+								name="notifications-outline"
+								size={22}
+								color="black"
+							/>
+							{hasUnread ? (
+								<View className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-peach" />
+							) : null}
+						</View>
+					</TouchableOpacity>
+					<TouchableOpacity onPress={() => navigation.navigate("Settings")}>
+						<Ionicons name="settings-outline" size={22} color="black" />
+					</TouchableOpacity>
+				</View>
+			</View>
+
 			<FlatList
 				ref={listRef}
 				data={friends}
