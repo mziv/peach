@@ -21,7 +21,13 @@ import {
 import { db } from "../config/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { addComment, deleteComment } from "../services/comments";
+import { getUserByUid } from "../services/users";
 import { confirmDestructive, notify } from "../utils/dialog";
+import {
+  CommentAuthorInfo,
+  distinctAuthorUids,
+  withAuthorInfo,
+} from "../utils/commentAuthors";
 import { Comment } from "../types";
 import Avatar from "./Avatar";
 
@@ -42,6 +48,11 @@ export default function CommentModal({
 }: CommentModalProps) {
   const { user } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
+  // Author profile info hydrated on read, keyed by uid. Comment text renders
+  // immediately; avatars fill in as these lookups resolve.
+  const [authorInfo, setAuthorInfo] = useState<Map<string, CommentAuthorInfo>>(
+    new Map()
+  );
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   // Tracks comment deletes in flight so a double-tap can't fire deleteComment
@@ -94,6 +105,35 @@ export default function CommentModal({
 
     return unsubscribe;
   }, [visible, postOwnerUid, postId]);
+
+  // Hydrate author profile photos on read: look up each distinct author uid
+  // once (skipping any already cached) and fold the result into authorInfo.
+  // Lookups run independently and never block comment text from showing; a
+  // failed/empty lookup still records an entry so we don't retry it and the
+  // row simply falls back to the stored username's initials.
+  useEffect(() => {
+    let cancelled = false;
+    const uidsToFetch = distinctAuthorUids(
+      comments,
+      new Set(authorInfo.keys())
+    );
+    if (uidsToFetch.length === 0) return;
+
+    uidsToFetch.forEach(async (uid) => {
+      let user = null;
+      try {
+        user = await getUserByUid(uid);
+      } catch {
+        // Swallow lookup failures — fall back to initials below.
+      }
+      if (cancelled) return;
+      setAuthorInfo((prev) => withAuthorInfo(prev, uid, user));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [comments, authorInfo]);
 
   async function handleSend() {
     if (!user || !commentText.trim() || submitting) return;
@@ -186,9 +226,15 @@ export default function CommentModal({
             data={comments}
             keyExtractor={(item) => item.commentId}
             className="flex-1"
-            renderItem={({ item }) => (
+            renderItem={({ item }) => {
+              const info = authorInfo.get(item.authorUid);
+              return (
               <View className="flex-row px-4 py-2">
-                <Avatar size={32} displayName={item.authorUsername} />
+                <Avatar
+                  size={32}
+                  photoURL={info?.photoURL}
+                  displayName={info?.displayName ?? item.authorUsername}
+                />
                 <View className="ml-3 flex-1">
                   <Text className="text-sm font-semibold text-gray-500">
                     @{item.authorUsername}
@@ -204,7 +250,8 @@ export default function CommentModal({
                   </TouchableOpacity>
                 )}
               </View>
-            )}
+              );
+            }}
           />
 
           {/* Bottom input */}
