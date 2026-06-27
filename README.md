@@ -27,6 +27,7 @@ for the detailed design and the decisions behind it.
 - [x] `users/{uid}/notifications` subcollection + service (create / list / mark read)
 - [x] `addComment` fans out a `comment` notification to the post owner (never self)
 - [x] `likePost` / `unlikePost` create / remove a `like` notification
+- [x] Double-tap a post to like it (idempotent — never unlikes; heart button keeps its single-tap toggle)
 - [x] Activity screen UI: avatar + display name + verb + time + post preview; tapping a comment row opens that post's comment thread (like rows are non-interactive)
 - [x] `activityLastReadAt` on the user doc; unread dot on the header icon; opening Activity marks read
 - [x] Firestore security rules for `notifications`
