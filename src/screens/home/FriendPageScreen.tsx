@@ -139,6 +139,13 @@ export function FriendPageScreen() {
     }
   }
 
+  // Double-tapping a post likes it but never unlikes. If it's already liked,
+  // do nothing; otherwise reuse the toggle's optimistic like path.
+  function handleDoubleTapLike(postId: string) {
+    if (likedMap[postId]) return;
+    handleLikeToggle(postId);
+  }
+
   if (loading) {
     return (
       <View className="flex-1 justify-center items-center bg-white">
@@ -197,6 +204,7 @@ export function FriendPageScreen() {
             isLiked={likedMap[item.postId] ?? false}
             photoURLs={item.photoURLs}
             onLikePress={() => handleLikeToggle(item.postId)}
+            onDoubleTapLike={() => handleDoubleTapLike(item.postId)}
             onCommentPress={() =>
               setCommentModal({
                 visible: true,
