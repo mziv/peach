@@ -6,6 +6,7 @@ import {
 	TouchableOpacity,
 	ActivityIndicator,
 	RefreshControl,
+	Image,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -179,7 +180,12 @@ export function HomeScreen() {
 		<View className="flex-1 bg-white">
 			{/* Custom header */}
 			<View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-100 bg-white">
-				<Text className="text-xl font-bold text-peach">peach</Text>
+				<Image
+					source={require("../../../assets/favicon.png")}
+					style={{ width: 32, height: 32 }}
+					resizeMode="contain"
+					accessibilityLabel="peach"
+				/>
 				<View className="flex-row items-center gap-3">
 					<TouchableOpacity onPress={() => navigation.navigate("Activity")}>
 						<View>

@@ -60,18 +60,18 @@ import { HomeScreen } from "../../src/screens/home/HomeScreen";
 describe("HomeScreen header", () => {
   beforeEach(() => mockNavigate.mockClear());
 
-  it("renders the title, notification bell, and settings", async () => {
-    const { getByText } = render(<HomeScreen />);
+  it("renders the logo, notification bell, and settings", async () => {
+    const { getByText, getByLabelText } = render(<HomeScreen />);
 
-    // The peach app title plus both header icons confirm the header rendered.
-    await waitFor(() => expect(getByText("peach")).toBeTruthy());
+    // The peach logo plus both header icons confirm the header rendered.
+    await waitFor(() => expect(getByLabelText("peach")).toBeTruthy());
     expect(getByText("notifications-outline")).toBeTruthy();
     expect(getByText("settings-outline")).toBeTruthy();
   });
 
   it("navigates to Activity when the bell is pressed", async () => {
-    const { getByText, UNSAFE_getAllByType } = render(<HomeScreen />);
-    await waitFor(() => expect(getByText("peach")).toBeTruthy());
+    const { getByLabelText, UNSAFE_getAllByType } = render(<HomeScreen />);
+    await waitFor(() => expect(getByLabelText("peach")).toBeTruthy());
 
     const { TouchableOpacity } = require("react-native");
     const touchables = UNSAFE_getAllByType(TouchableOpacity);
