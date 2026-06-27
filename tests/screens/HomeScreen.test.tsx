@@ -47,22 +47,26 @@ jest.mock("../../src/components/UserPreview", () => ({
   default: jest.fn(() => null),
 }));
 
+// Render Ionicons as plain Text of its `name` so the icons are queryable.
+// Under jest-expo the real Ionicons doesn't render as a node whose type
+// matches the imported reference, so getAllByType(Ionicons) finds nothing.
+jest.mock("@expo/vector-icons", () => {
+  const { Text } = require("react-native");
+  return { Ionicons: ({ name }: { name: string }) => <Text>{name}</Text> };
+});
+
 import { HomeScreen } from "../../src/screens/home/HomeScreen";
 
 describe("HomeScreen header", () => {
   beforeEach(() => mockNavigate.mockClear());
 
-  it("renders the title and notification bell", async () => {
-    const { getByText, UNSAFE_getAllByType } = render(<HomeScreen />);
+  it("renders the title, notification bell, and settings", async () => {
+    const { getByText } = render(<HomeScreen />);
 
-    // The peach app title confirms the header rendered.
+    // The peach app title plus both header icons confirm the header rendered.
     await waitFor(() => expect(getByText("peach")).toBeTruthy());
-
-    const { Ionicons } = require("@expo/vector-icons");
-    const bell = UNSAFE_getAllByType(Ionicons).find(
-      (node: any) => node.props.name === "notifications-outline"
-    );
-    expect(bell).toBeTruthy();
+    expect(getByText("notifications-outline")).toBeTruthy();
+    expect(getByText("settings-outline")).toBeTruthy();
   });
 
   it("navigates to Activity when the bell is pressed", async () => {
