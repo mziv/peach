@@ -135,7 +135,8 @@ export function MyPageScreen() {
   async function handlePost() {
     const text = newPostText.trim();
     const photos = selectedPhotos;
-    if ((!text && photos.length === 0) || !user) return;
+    // Enter bypasses the Post button's `disabled`, so guard re-entry here too.
+    if (posting || (!text && photos.length === 0) || !user) return;
     setPosting(true);
     try {
       const postId = await createPost(user.uid, text);
@@ -354,6 +355,8 @@ export function MyPageScreen() {
             value={newPostText}
             onChangeText={setNewPostText}
             multiline
+            onSubmitEditing={handlePost}
+            submitBehavior="submit"
           />
           <TouchableOpacity
             className={`rounded-full px-5 py-2 ${
