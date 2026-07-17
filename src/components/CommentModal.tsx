@@ -264,6 +264,9 @@ export default function CommentModal({
               multiline={false}
               onSubmitEditing={handleSend}
               submitBehavior="submit"
+              // react-native-web ignores submitBehavior; this keeps web focus
+              // in the input after sending.
+              blurOnSubmit={false}
             />
             <TouchableOpacity
               className={`rounded-full px-4 py-2 ${
