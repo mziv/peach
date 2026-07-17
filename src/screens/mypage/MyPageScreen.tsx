@@ -363,7 +363,11 @@ export function MyPageScreen() {
               if (
                 Platform.OS === "web" &&
                 e.nativeEvent.key === "Enter" &&
-                !e.nativeEvent.shiftKey
+                !e.nativeEvent.shiftKey &&
+                // Enter during IME composition commits the candidate text,
+                // not the post (mirrors react-native-web's own submit guard).
+                !e.nativeEvent.isComposing &&
+                e.nativeEvent.keyCode !== 229
               ) {
                 e.preventDefault();
                 handlePost();
