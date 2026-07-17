@@ -135,7 +135,8 @@ export function MyPageScreen() {
   async function handlePost() {
     const text = newPostText.trim();
     const photos = selectedPhotos;
-    if ((!text && photos.length === 0) || !user) return;
+    // Enter bypasses the Post button's `disabled`, so guard re-entry here too.
+    if (posting || (!text && photos.length === 0) || !user) return;
     setPosting(true);
     try {
       const postId = await createPost(user.uid, text);
@@ -354,6 +355,24 @@ export function MyPageScreen() {
             value={newPostText}
             onChangeText={setNewPostText}
             multiline
+            onSubmitEditing={handlePost}
+            submitBehavior="submit"
+            onKeyPress={(e: any) => {
+              // react-native-web ignores submitBehavior on multiline inputs;
+              // submit on plain Enter, let Shift+Enter fall through as newline.
+              if (
+                Platform.OS === "web" &&
+                e.nativeEvent.key === "Enter" &&
+                !e.nativeEvent.shiftKey &&
+                // Enter during IME composition commits the candidate text,
+                // not the post (mirrors react-native-web's own submit guard).
+                !e.nativeEvent.isComposing &&
+                e.nativeEvent.keyCode !== 229
+              ) {
+                e.preventDefault();
+                handlePost();
+              }
+            }}
           />
           <TouchableOpacity
             className={`rounded-full px-5 py-2 ${
