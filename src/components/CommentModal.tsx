@@ -262,6 +262,8 @@ export default function CommentModal({
               value={commentText}
               onChangeText={setCommentText}
               multiline={false}
+              onSubmitEditing={handleSend}
+              submitBehavior="submit"
             />
             <TouchableOpacity
               className={`rounded-full px-4 py-2 ${
