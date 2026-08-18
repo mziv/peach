@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
-  FlatList,
   Image,
   TextInput,
   TouchableOpacity,
@@ -14,17 +13,15 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
-import { db } from "../../config/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { createPost, deletePost, uploadPostPhotos, updatePost } from "../../services/posts";
 import { confirmDestructive, notify } from "../../utils/dialog";
-import { likePost, unlikePost, hasLiked } from "../../services/likes";
 import { HomeStackParamList } from "../../navigation/HomeStack";
 import { useUnreadActivity } from "../../hooks/useUnreadActivity";
+import { useUserPosts } from "../../hooks/useUserPosts";
 import { Post } from "../../types";
 import Avatar from "../../components/Avatar";
-import PostItem from "../../components/PostItem";
+import UserPostFeed from "../../components/UserPostFeed";
 import CommentModal from "../../components/CommentModal";
 
 type MyPageNav = NativeStackNavigationProp<HomeStackParamList, "MyPage">;
@@ -34,58 +31,27 @@ export function MyPageScreen() {
   const { user } = useAuth();
   const route = useRoute<RouteProp<HomeStackParamList, "MyPage">>();
   const hasUnread = useUnreadActivity(user?.uid);
-  const [posts, setPosts] = useState<Post[]>([]);
+  const { posts, loading, loadingMore, loadOlder, likedMap, toggleLike, doubleTapLike } =
+    useUserPosts(user?.uid);
   const [newPostText, setNewPostText] = useState("");
-  const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState<
     { uri: string; width?: number; height?: number }[]
   >([]);
   const pickerActiveRef = useRef(false);
-  const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
   const [commentModal, setCommentModal] = useState<{
     visible: boolean;
     postOwnerUid: string;
     postId: string;
     postText: string;
   }>({ visible: false, postOwnerUid: "", postId: "", postText: "" });
-  const flatListRef = useRef<FlatList>(null);
-
-  useEffect(() => {
-    if (!user) return;
-    const q = query(
-      collection(db, "users", user.uid, "posts"),
-      orderBy("createdAt", "asc")
-    );
-    const unsubscribe = onSnapshot(q, async (snap) => {
-      const postList: Post[] = snap.docs.map((d) => ({
-        postId: d.id,
-        text: d.data().text,
-        createdAt: d.data().createdAt?.toDate() ?? new Date(),
-        commentCount: d.data().commentCount ?? 0,
-        likeCount: d.data().likeCount ?? 0,
-        photoURLs: d.data().photoURLs ?? [],
-      }));
-      setPosts(postList);
-      setLoading(false);
-
-      // Batch check likes
-      const likeChecks = await Promise.all(
-        postList.map((p) => hasLiked(user.uid, p.postId, user.uid))
-      );
-      const newLikedMap: Record<string, boolean> = {};
-      postList.forEach((p, i) => {
-        newLikedMap[p.postId] = likeChecks[i];
-      });
-      setLikedMap(newLikedMap);
-    });
-    return unsubscribe;
-  }, [user]);
 
   useEffect(() => {
     if (!user) return;
     const postId = route.params?.openCommentPostId;
     if (!postId || posts.length === 0) return;
+    // Only posts already paged into the feed can be opened this way; a deep
+    // link to a much older post won't match until it's scrolled into view.
     const post = posts.find((p) => p.postId === postId);
     if (!post) return;
     setCommentModal({
@@ -157,55 +123,6 @@ export function MyPageScreen() {
     }
   }
 
-  async function handleLikeToggle(postId: string) {
-    if (!user) return;
-    const isLiked = likedMap[postId] ?? false;
-    const post = posts.find((p) => p.postId === postId);
-
-    // Optimistic update
-    setLikedMap((prev) => ({ ...prev, [postId]: !isLiked }));
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.postId === postId
-          ? { ...p, likeCount: p.likeCount + (isLiked ? -1 : 1) }
-          : p
-      )
-    );
-
-    try {
-      if (isLiked) {
-        await unlikePost(user.uid, postId, user.uid);
-      } else {
-        await likePost(
-          user.uid,
-          postId,
-          user.uid,
-          user.username,
-          user.displayName,
-          user.photoURL,
-          post?.text ?? ""
-        );
-      }
-    } catch {
-      // Revert on error
-      setLikedMap((prev) => ({ ...prev, [postId]: isLiked }));
-      setPosts((prev) =>
-        prev.map((p) =>
-          p.postId === postId
-            ? { ...p, likeCount: p.likeCount + (isLiked ? 1 : -1) }
-            : p
-        )
-      );
-    }
-  }
-
-  // Double-tapping a post likes it but never unlikes. If it's already liked,
-  // do nothing; otherwise reuse the toggle's optimistic like path.
-  function handleDoubleTapLike(postId: string) {
-    if (likedMap[postId]) return;
-    handleLikeToggle(postId);
-  }
-
   async function handleDeletePost(postId: string) {
     if (!user) return;
     const confirmed = await confirmDestructive(
@@ -265,52 +182,23 @@ export function MyPageScreen() {
       </View>
 
       {/* Post feed */}
-      <FlatList
-        ref={flatListRef}
-        data={posts}
-        keyExtractor={(item) => item.postId}
-        onContentSizeChange={() => {
-          if (posts.length === 0) return;
-          // Pin to the newest (last) post. A tall final post — long text or
-          // photos — can finish laying out a frame or two after the size first
-          // reports, which left a single scrollToEnd short and landed us on the
-          // TOP of that post. Re-pin across the next frames so we end on its end.
-          const pin = () =>
-            flatListRef.current?.scrollToEnd({ animated: false });
-          pin();
-          requestAnimationFrame(() => {
-            pin();
-            requestAnimationFrame(pin);
-          });
-        }}
-        renderItem={({ item }) => (
-          <PostItem
-            text={item.text}
-            createdAt={item.createdAt}
-            commentCount={item.commentCount}
-            likeCount={item.likeCount}
-            isLiked={likedMap[item.postId] ?? false}
-            onLikePress={() => handleLikeToggle(item.postId)}
-            onDoubleTapLike={() => handleDoubleTapLike(item.postId)}
-            onCommentPress={() =>
-              setCommentModal({
-                visible: true,
-                postOwnerUid: user!.uid,
-                postId: item.postId,
-                postText: item.text,
-              })
-            }
-            photoURLs={item.photoURLs}
-            onDeletePress={() => handleDeletePost(item.postId)}
-          />
-        )}
-        ListEmptyComponent={
-          <View className="flex-1 justify-center items-center p-6">
-            <Text className="text-sm text-gray-400">
-              No posts yet. Write your first one!
-            </Text>
-          </View>
+      <UserPostFeed
+        posts={posts}
+        likedMap={likedMap}
+        loadingMore={loadingMore}
+        onLoadOlder={loadOlder}
+        onLikePress={toggleLike}
+        onDoubleTapLike={doubleTapLike}
+        onCommentPress={(post: Post) =>
+          setCommentModal({
+            visible: true,
+            postOwnerUid: user!.uid,
+            postId: post.postId,
+            postText: post.text,
+          })
         }
+        onDeletePress={handleDeletePost}
+        emptyText="No posts yet. Write your first one!"
       />
 
       {/* Composer */}

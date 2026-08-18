@@ -1,11 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
-} from "react-native";
+import React, { useCallback, useState } from "react";
+import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
 import {
   useNavigation,
   useRoute,
@@ -14,16 +8,14 @@ import {
 } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
-import { db } from "../../config/firebase";
 import { useAuth } from "../../contexts/AuthContext";
-import { likePost, unlikePost, hasLiked } from "../../services/likes";
 import { markFriendViewed } from "../../services/viewedFriends";
 import { HomeStackParamList } from "../../navigation/HomeStack";
 import { Post } from "../../types";
 import Avatar from "../../components/Avatar";
-import PostItem from "../../components/PostItem";
+import UserPostFeed from "../../components/UserPostFeed";
 import CommentModal from "../../components/CommentModal";
+import { useUserPosts } from "../../hooks/useUserPosts";
 
 type FriendPageRoute = RouteProp<HomeStackParamList, "FriendPage">;
 type FriendPageNav = NativeStackNavigationProp<
@@ -36,56 +28,14 @@ export function FriendPageScreen() {
   const navigation = useNavigation<FriendPageNav>();
   const { user } = useAuth();
   const { friendUid, friendDisplayName, friendUsername, friendPhotoURL } = route.params;
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
+  const { posts, loading, loadingMore, loadOlder, likedMap, toggleLike, doubleTapLike } =
+    useUserPosts(friendUid);
   const [commentModal, setCommentModal] = useState<{
     visible: boolean;
     postOwnerUid: string;
     postId: string;
     postText: string;
   }>({ visible: false, postOwnerUid: "", postId: "", postText: "" });
-  const flatListRef = useRef<FlatList>(null);
-
-  useEffect(() => {
-    const q = query(
-      collection(db, "users", friendUid, "posts"),
-      orderBy("createdAt", "asc")
-    );
-    const unsubscribe = onSnapshot(q, async (snap) => {
-      // Firestore's offline cache makes onSnapshot fire twice: once with the
-      // locally-cached docs (instant, but stale) and again with server data.
-      // Rendering the cached emission flashes old posts that then get replaced
-      // when the server data arrives. Wait for the server snapshot so the feed
-      // paints once with fresh data. Trade-off: first paint waits on the
-      // network (no instant cache paint, and no posts shown while offline).
-      if (snap.metadata.fromCache) return;
-
-      const postList: Post[] = snap.docs.map((d) => ({
-        postId: d.id,
-        text: d.data().text,
-        createdAt: d.data().createdAt?.toDate() ?? new Date(),
-        commentCount: d.data().commentCount ?? 0,
-        likeCount: d.data().likeCount ?? 0,
-        photoURLs: d.data().photoURLs ?? [],
-      }));
-      setPosts(postList);
-      setLoading(false);
-
-      // Batch check likes
-      if (user) {
-        const likeChecks = await Promise.all(
-          postList.map((p) => hasLiked(friendUid, p.postId, user.uid))
-        );
-        const newLikedMap: Record<string, boolean> = {};
-        postList.forEach((p, i) => {
-          newLikedMap[p.postId] = likeChecks[i];
-        });
-        setLikedMap(newLikedMap);
-      }
-    });
-    return unsubscribe;
-  }, [friendUid, user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -96,55 +46,6 @@ export function FriendPageScreen() {
       }
     }, [friendUid, user])
   );
-
-  async function handleLikeToggle(postId: string) {
-    if (!user) return;
-    const isLiked = likedMap[postId] ?? false;
-    const post = posts.find((p) => p.postId === postId);
-
-    // Optimistic update
-    setLikedMap((prev) => ({ ...prev, [postId]: !isLiked }));
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.postId === postId
-          ? { ...p, likeCount: p.likeCount + (isLiked ? -1 : 1) }
-          : p
-      )
-    );
-
-    try {
-      if (isLiked) {
-        await unlikePost(friendUid, postId, user.uid);
-      } else {
-        await likePost(
-          friendUid,
-          postId,
-          user.uid,
-          user.username,
-          user.displayName,
-          user.photoURL,
-          post?.text ?? ""
-        );
-      }
-    } catch {
-      // Revert on error
-      setLikedMap((prev) => ({ ...prev, [postId]: isLiked }));
-      setPosts((prev) =>
-        prev.map((p) =>
-          p.postId === postId
-            ? { ...p, likeCount: p.likeCount + (isLiked ? 1 : -1) }
-            : p
-        )
-      );
-    }
-  }
-
-  // Double-tapping a post likes it but never unlikes. If it's already liked,
-  // do nothing; otherwise reuse the toggle's optimistic like path.
-  function handleDoubleTapLike(postId: string) {
-    if (likedMap[postId]) return;
-    handleLikeToggle(postId);
-  }
 
   if (loading) {
     return (
@@ -177,49 +78,22 @@ export function FriendPageScreen() {
       </View>
 
       {/* Post feed */}
-      <FlatList
-        ref={flatListRef}
-        data={posts}
-        keyExtractor={(item) => item.postId}
-        onContentSizeChange={() => {
-          if (posts.length === 0) return;
-          // Pin to the newest (last) post. A tall final post — long text or
-          // photos — can finish laying out a frame or two after the size first
-          // reports, which left a single scrollToEnd short and landed us on the
-          // TOP of that post. Re-pin across the next frames so we end on its end.
-          const pin = () =>
-            flatListRef.current?.scrollToEnd({ animated: false });
-          pin();
-          requestAnimationFrame(() => {
-            pin();
-            requestAnimationFrame(pin);
-          });
-        }}
-        renderItem={({ item }) => (
-          <PostItem
-            text={item.text}
-            createdAt={item.createdAt}
-            commentCount={item.commentCount}
-            likeCount={item.likeCount}
-            isLiked={likedMap[item.postId] ?? false}
-            photoURLs={item.photoURLs}
-            onLikePress={() => handleLikeToggle(item.postId)}
-            onDoubleTapLike={() => handleDoubleTapLike(item.postId)}
-            onCommentPress={() =>
-              setCommentModal({
-                visible: true,
-                postOwnerUid: friendUid,
-                postId: item.postId,
-                postText: item.text,
-              })
-            }
-          />
-        )}
-        ListEmptyComponent={
-          <View className="flex-1 justify-center items-center p-6">
-            <Text className="text-sm text-gray-400">No posts yet.</Text>
-          </View>
+      <UserPostFeed
+        posts={posts}
+        likedMap={likedMap}
+        loadingMore={loadingMore}
+        onLoadOlder={loadOlder}
+        onLikePress={toggleLike}
+        onDoubleTapLike={doubleTapLike}
+        onCommentPress={(post: Post) =>
+          setCommentModal({
+            visible: true,
+            postOwnerUid: friendUid,
+            postId: post.postId,
+            postText: post.text,
+          })
         }
+        emptyText="No posts yet."
       />
 
       {/* Comment Modal */}
