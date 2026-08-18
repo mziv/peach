@@ -22,8 +22,6 @@ jest.mock("firebase/firestore", () => ({
   startAfter: jest.fn(),
   getDocs: jest.fn().mockResolvedValue({ docs: [] }),
   onSnapshot: jest.fn((_q, cb) => {
-    // The hook ignores cache-only emissions (snap.metadata.fromCache), so the
-    // mock must supply metadata or no posts render.
     cb({ docs: [FRIEND_POST], metadata: { fromCache: false } });
     return jest.fn();
   }),

@@ -109,11 +109,13 @@ export function useUserPosts(ownerUid: string | undefined): UseUserPosts {
       limit(PAGE_SIZE)
     );
     const unsubscribe = onSnapshot(q, async (snap) => {
-      // Firestore's offline cache makes onSnapshot fire twice: once with the
-      // locally-cached docs (instant, but stale) and again with server data.
-      // Skip the cache emission so the feed paints once with fresh data.
-      if (snap.metadata?.fromCache) return;
-
+      // Paint every emission, cache included. A warm-cache re-subscribe (e.g.
+      // leaving this screen and coming back) can deliver ONLY a cache snapshot
+      // — with no doc changes and no metadata-change subscription, Firestore
+      // never fires a follow-up server snapshot — so skipping cache emissions
+      // would leave the spinner up forever. On a revisit the cache matches the
+      // server, so there's no visible flash; a genuine change still arrives as
+      // a later live emission and overwrites the head here.
       const livePage = snap.docs.map(docToPost);
       liveLastDocRef.current = snap.docs[snap.docs.length - 1] ?? null;
       // A full first page means there may be older posts to page in; a short
