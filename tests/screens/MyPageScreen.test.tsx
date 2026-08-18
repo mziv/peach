@@ -5,9 +5,12 @@ jest.mock("firebase/firestore", () => ({
   collection: jest.fn(),
   orderBy: jest.fn(),
   query: jest.fn(),
+  limit: jest.fn(),
+  startAfter: jest.fn(),
+  getDocs: jest.fn().mockResolvedValue({ docs: [] }),
   // Deliver an empty post list immediately so the screen finishes loading.
   onSnapshot: jest.fn((_q: any, cb: any) => {
-    cb({ docs: [] });
+    cb({ docs: [], metadata: { fromCache: false } });
     return jest.fn();
   }),
 }));

@@ -43,6 +43,13 @@ for the detailed design and the decisions behind it.
 - [x] Opening a friend's page stamps `lastViewedAt = now`, clearing the dot
 - [x] Firestore security rules for `viewedFriends`
 
+**Profile feed pagination** _(chat-style; load older on scroll)_
+
+- [x] Profile pages load the newest 10 posts live and page in older posts as you scroll up
+- [x] Inverted, chat-style feed that opens pinned to the latest post
+- [x] Full-screen loader until the first page (posts + like state) is ready
+- [x] Shared `useUserPosts` hook + `UserPostFeed` unify My Page and friends' pages
+
 ### Tier 3 — P1 (post-MVP)
 
 **Tagging / @mentions**
